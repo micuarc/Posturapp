@@ -1,0 +1,24 @@
+[
+  {
+    "id": 1,
+    "fecha": "2025-11-10T12:00:00Z",
+    "minutos": 5,
+    "activaciones": 2,
+    "pitch": 8.3,
+    "roll": -4.1,
+    "refPitch": 0,
+    "refRoll": 0,
+    "malaPostura": 1
+  },
+  {
+    "id": 2,
+    "fecha": "2025-11-10T12:05:00Z",
+    "minutos": 5,
+    "activaciones": 0,
+    "pitch": 1.5,
+    "roll": 2.1,
+    "refPitch": 0,
+    "refRoll": 0,
+    "malaPostura": 0
+  }
+]
