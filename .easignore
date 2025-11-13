@@ -1,0 +1,17 @@
+# Ignorar archivos innecesarios para el build
+node_modules/**/.bin
+node_modules/**/.cache
+**/*.log
+**/.git
+.expo
+.vscode
+**/__tests__
+**/tests
+**/*.test.js
+**/*.test.ts
+**/*.spec.js
+**/*.spec.ts
+android/build
+android/.gradle
+android/app/build
+.gradle

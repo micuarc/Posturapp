@@ -1,48 +1,66 @@
-import React, { useContext, useEffect, useState } from "react";
-import { Dimensions, StyleSheet, Image } from "react-native";
+import React, { useContext, useState, useCallback } from "react";
+import { Dimensions, StyleSheet, Image, Modal } from "react-native";
 import { Wifi, WifiOff, RefreshCw } from "lucide-react-native";
+
 import { ScrollView } from "@/components/ui/scroll-view";
 import { View } from "@/components/ui/view";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
-import { usePosturaEstadisticas } from "@/hooks/usePosturaEstadisticas";
-import { Registro, useDatabase } from "@/hooks/useDatabase";
+
 import { SensorContext } from "@/helpers/SensorContext";
-import { usePostura } from "@/hooks/usePostura";
+import { useDatabase } from "@/hooks/useDatabase";
 import { useSQLiteContext } from "expo-sqlite";
+import { useAuth } from "@/helpers/AuthContext";
+import { usePosturaEstadisticas } from "@/hooks/usePosturaEstadisticas";
 
-const ESP_IP = process.env.ESP_IP || "fallback_de_tu_ip";
-
+const { lectura, connected, ip } = useContext(SensorContext);
 const { width } = Dimensions.get("window");
 
 export default function MonitoreoScreen() {
-  const [registros, setRegistros] = useState<Registro[]>([]);
   const { lectura, connected } = useContext(SensorContext);
   const db = useSQLiteContext();
-  const { obtener } = useDatabase(db);
+  const { usuario } = useAuth();
+  const { guardar } = useDatabase(db);
+  const stats = usePosturaEstadisticas(0); // Usar las mismas estadísticas que dashboard
 
+  const [isCalibratingModal, setIsCalibratingModal] = useState(false);
+  const [countdown, setCountdown] = useState(5);
 
-  const { posturaCorrecta, activaciones, minutos } =
-    usePostura(lectura, connected);
+  // postura correcta real: viene del ESP
+  const posturaCorrecta = lectura?.malaPostura === 0;
 
-  // carga de datos históricos db
-  const {
-    totalActivaciones,
-    desviacionPromedio,
-    promedioPitch,
-    promedioRoll,
-    streak,
-  } = usePosturaEstadisticas();
+  const iniciarCalibracion = useCallback(async () => {
+    setIsCalibratingModal(true);
+    setCountdown(5);
 
-  const obtenerRegistros = async() => {
-    const registros = await obtener();
-    setRegistros(registros);
-    console.log(registros)
-  }
+    for (let i = 5; i > 0; i--) {
+      setCountdown(i);
+      await new Promise((res) => setTimeout(res, 1000));
+    }
 
-  useEffect(() => {
-    obtenerRegistros();
+    try {
+      await fetch(`http://${ip}/calibrate`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      console.log("Calibración solicitada");
+    } catch (e) {
+      console.error("Error calibrando:", e);
+    } finally {
+      setIsCalibratingModal(false);
+    }
   }, []);
+
+  const handleGuardarManual = useCallback(async () => {
+    if (!lectura) return;
+    
+    try {
+      await guardar(lectura);
+      console.log("Registro manual guardado.");
+    } catch (e) {
+      console.error("Error guardando manual:", e);
+    }
+  }, [lectura, guardar]);
 
   const colorPostura = posturaCorrecta ? "#A0D8A0" : "#FF9999";
   const colorTextoPostura = posturaCorrecta ? "#57bd57ff" : "#e94d4dff";
@@ -57,8 +75,9 @@ export default function MonitoreoScreen() {
 
   return (
     <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-      {/* Encabezado */}
-      <View style={[styles.header, { flexDirection: "row" }]}>
+
+      {/* ENCABEZADO */}
+      <View style={styles.header}>
         <View>
           <Text variant="heading" style={styles.title}>
             Monitoreo
@@ -67,10 +86,16 @@ export default function MonitoreoScreen() {
             Estado en tiempo real
           </Text>
         </View>
-        <Button icon={RefreshCw} size="icon" style={styles.refreshButton} />
+
+        <Button
+          icon={RefreshCw}
+          size="icon"
+          style={styles.refreshButton}
+          onPress={() => console.log('Las estadísticas se actualizan automáticamente')}
+        />
       </View>
 
-      {/* Estado de conexión */}
+      {/* ESTADO DE CONEXIÓN */}
       <View style={styles.estadoConexion}>
         <View
           style={[
@@ -88,7 +113,7 @@ export default function MonitoreoScreen() {
         )}
       </View>
 
-      {/* Estado de postura */}
+      {/* POSTURA */}
       <View style={styles.estadoPostura}>
         <View
           style={[styles.circuloExterior, { backgroundColor: colorPostura }]}
@@ -109,14 +134,12 @@ export default function MonitoreoScreen() {
 
         <Text variant="caption" style={styles.textoHora}>
           Última actualización:{" "}
-          {ultimaMedicion.toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
+          {ultimaMedicion.getHours().toString().padStart(2, '0')}:
+          {ultimaMedicion.getMinutes().toString().padStart(2, '0')}
         </Text>
       </View>
 
-      {/* Datos en tiempo real */}
+      {/* LECTURA REAL EN TIEMPO REAL */}
       {lectura && (
         <View style={styles.datosContainer}>
           <Text style={styles.dato}>Pitch: {lectura.pitch.toFixed(2)}°</Text>
@@ -127,59 +150,46 @@ export default function MonitoreoScreen() {
           <Text style={styles.dato}>
             Ref Roll: {lectura.refRoll.toFixed(2)}°
           </Text>
+          <Text style={styles.dato}>
+            Calibrando: {lectura.calibrating === 1 ? "Sí" : "No"}
+          </Text>
         </View>
       )}
 
-      {/* Métricas en vivo + históricas */}
+      {/* TABLA DE REGISTROS */}
       <View style={styles.alertasContainer}>
         <Text variant="title" style={styles.alertasTitulo}>
-          Métricas actuales
+          Últimas alertas de mala postura
         </Text>
 
-        <View style={styles.alertasLista}>
-          <View style={styles.alertaFila}>
-            <Text style={styles.alertaTipo}>Minutos en sesión</Text>
-            <Text style={styles.alertaHora}>{minutos.toFixed(1)}</Text>
+        {stats.ultimasAlertasDia.length === 0 ? (
+          <View style={[styles.alertasLista, { padding: 20 }]}>
+            <Text style={styles.alertaTipo}>No hay alertas hoy</Text>
           </View>
-
-          <View style={styles.alertaFila}>
-            <Text style={styles.alertaTipo}>Alertas (actual sesión)</Text>
-            <Text style={styles.alertaHora}>{activaciones}</Text>
+        ) : (
+          <View style={styles.alertasLista}>
+            {stats.ultimasAlertasDia.slice(0, 10).map((alerta, idx) => (
+              <View key={`${alerta.hora}-${idx}`} style={styles.alertaFila}>
+                <Text style={styles.alertaTipo}>{alerta.hora}</Text>
+                <Text style={styles.alertaHora}>
+                  {alerta.duracionSegundos != null
+                    ? `${alerta.duracionSegundos}s`
+                    : "Sin corrección"}
+                </Text>
+              </View>
+            ))}
           </View>
-
-          <View style={styles.alertaFila}>
-            <Text style={styles.alertaTipo}>Alertas totales (histórico)</Text>
-            <Text style={styles.alertaHora}>{totalActivaciones}</Text>
-          </View>
-
-          <View style={styles.alertaFila}>
-            <Text style={styles.alertaTipo}>Desviación promedio</Text>
-            <Text style={styles.alertaHora}>
-              {desviacionPromedio.toFixed(1)}°
-            </Text>
-          </View>
-
-          <View style={styles.alertaFila}>
-            <Text style={styles.alertaTipo}>Racha de mejora</Text>
-            <Text style={styles.alertaHora}>{streak} días</Text>
-          </View>
-        </View>
+        )}
       </View>
 
-      {/* Botones de control */}
+      {/* BOTONES */}
       <View style={styles.controlButtons}>
+
         <Button
           size="lg"
           variant="default"
           style={[styles.botonTest, { backgroundColor: "#6FCF97" }]}
-          onPress={async () => {
-            try {
-              await fetch(`http://${ESP_IP}/calibrate`);
-              console.log("Calibración iniciada");
-            } catch (e) {
-              console.error("Error al calibrar:", e);
-            }
-          }}
+          onPress={iniciarCalibracion}
         >
           Calibrar postura buena
         </Button>
@@ -188,23 +198,32 @@ export default function MonitoreoScreen() {
           size="lg"
           variant="default"
           style={styles.botonTest}
-          onPress={obtenerRegistros}
-        >
-          ver database
-        </Button>
-
-        {/* Botón manual */}
-        <Button
-          size="lg"
-          variant="default"
-          style={styles.botonTest}
-          onPress={() => {
-            console.log("Guardado manual (useDatabase interno)");
-          }}
+          onPress={handleGuardarManual}
         >
           Registrar ahora
         </Button>
       </View>
+
+      {/* MODAL CALIBRACIÓN */}
+      <Modal visible={isCalibratingModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Mantén postura neutra</Text>
+            <Text style={styles.modalSubtitle}>
+              Calibrando en {countdown} s...
+            </Text>
+            <Text style={styles.modalCountdown}>{countdown}</Text>
+
+            <Button
+              style={styles.modalCancelBtn}
+              onPress={() => setIsCalibratingModal(false)}
+            >
+              Cancelar
+            </Button>
+          </View>
+        </View>
+      </Modal>
+
     </ScrollView>
   );
 }
@@ -216,27 +235,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 60,
   },
+
   header: {
     justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: "row",
     marginBottom: 10,
   },
+
   title: {
     color: "#8B5A2B",
     fontWeight: "700",
     fontSize: 32,
     marginBottom: 4,
   },
+
   subtitle: {
     color: "#A0522D",
     opacity: 0.8,
     fontSize: 16,
     marginBottom: 12,
   },
+
   refreshButton: {
     backgroundColor: "#FF9966",
     borderRadius: 100,
   },
+
   estadoConexion: {
     flexDirection: "row",
     alignItems: "center",
@@ -245,21 +269,25 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 20,
   },
+
   indicadorConexion: {
     width: 12,
     height: 12,
     borderRadius: 6,
     marginRight: 10,
   },
+
   textoConexion: {
     flex: 1,
     color: "#8B5A2B",
     fontWeight: "600",
   },
+
   estadoPostura: {
     alignItems: "center",
     marginBottom: 30,
   },
+
   circuloExterior: {
     width: width * 0.6,
     height: width * 0.6,
@@ -268,6 +296,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 20,
   },
+
   circuloMedio: {
     width: width * 0.48,
     height: width * 0.48,
@@ -276,6 +305,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+
   circuloInterior: {
     width: width * 0.35,
     height: width * 0.35,
@@ -284,40 +314,50 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+
   imagenPostura: {
     resizeMode: "contain",
     width: "100%",
     height: "100%",
   },
+
   textoPostura: {
     fontWeight: "700",
     marginBottom: 4,
   },
+
   textoHora: {
     color: "#A0522D",
   },
+
   datosContainer: {
     alignItems: "center",
     marginBottom: 20,
   },
+
   dato: {
     color: "#8B5A2B",
     fontWeight: "600",
     marginVertical: 2,
   },
+
   alertasContainer: {
-    marginBottom: 30,
+    marginBottom: 20,
   },
+
   alertasTitulo: {
     color: "#8B5A2B",
     fontWeight: "700",
     marginBottom: 10,
   },
+
   alertasLista: {
     borderWidth: 1,
     borderRadius: 16,
     backgroundColor: "#FFFFFF",
+    borderColor: "#FFE5CC",
   },
+
   alertaFila: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -325,19 +365,69 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#FFE5CC",
   },
+
   alertaHora: {
     color: "#8B5A2B",
     fontWeight: "600",
   },
+
   alertaTipo: {
     color: "#A0522D",
   },
-  botonTest: {
-    marginBottom: 80,
-    backgroundColor: "#FF9966",
-  },
+
   controlButtons: {
     gap: 12,
     marginBottom: 80,
+  },
+
+  botonTest: {
+    backgroundColor: "#FF9966",
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+
+  modalCard: {
+    backgroundColor: "#FFF",
+    padding: 24,
+    borderRadius: 20,
+    width: "80%",
+    alignItems: "center",
+  },
+
+  modalTitle: {
+    color: "#8B5A2B",
+    fontSize: 22,
+    fontWeight: "700",
+    marginBottom: 12,
+  },
+
+  modalSubtitle: {
+    color: "#A0522D",
+    fontSize: 16,
+    marginBottom: 20,
+  },
+
+  modalCountdown: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#FF9966",
+    color: "#FFF",
+    fontSize: 32,
+    fontWeight: "700",
+    textAlign: "center",
+    textAlignVertical: "center",
+  },
+
+  modalCancelBtn: {
+    marginTop: 24,
+    backgroundColor: "#E57373",
+    borderRadius: 12,
   },
 });

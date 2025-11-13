@@ -12,7 +12,7 @@ const lightColors = {
   popoverForeground: '#000000',
 
   // Primary colors
-  primary: '#18181b',
+  primary: '#FF9966',
   primaryForeground: '#FFFFFF',
 
   // Secondary colors
@@ -21,7 +21,7 @@ const lightColors = {
 
   // Muted colors
   muted: '#78788033',
-  mutedForeground: '#71717a',
+  mutedForeground: '#fac6acff',
 
   // Accent colors
   accent: '#F2F2F7',

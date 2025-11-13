@@ -1,7 +1,7 @@
-import { useColor } from "@/hooks/useColor";
-import { useCallback, useState } from "react";
-import { LayoutChangeEvent, View, ViewStyle, StyleSheet, Text } from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { useColor } from '@/hooks/useColor';
+import { useEffect, useState } from 'react';
+import { LayoutChangeEvent, View, ViewStyle } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useAnimatedProps,
   useAnimatedStyle,
@@ -10,7 +10,6 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { useFocusEffect } from '@react-navigation/native';
 import Svg, {
   Circle,
   Defs,
@@ -20,8 +19,7 @@ import Svg, {
   Path,
   Stop,
   Text as SvgText,
-} from "react-native-svg";
-import { scheduleOnRN } from "react-native-worklets";
+} from 'react-native-svg';
 
 interface ChartConfig {
   width?: number;
@@ -29,316 +27,323 @@ interface ChartConfig {
   padding?: number;
   showGrid?: boolean;
   showLabels?: boolean;
+  animated?: boolean;
+  duration?: number;
   gradient?: boolean;
+  interactive?: boolean;
   showYLabels?: boolean;
   yLabelCount?: number;
   yAxisWidth?: number;
-  lineColor?: string;
-  pointColor?: string;
-  startFillColor?: string;
-  endFillColor?: string;
-  curveSmoothness?: number;
-  animated?: boolean;
-  duration?: number;
-  interactive?: boolean;
 }
 
-export type ChartDataPoint = { x: string | number; y: number };
+export type ChartDataPoint = {
+  x: string | number;
+  y: number;
+  label?: string;
+};
 
-const createPath = (points: { x: number; y: number }[], tension = 0.35): string => {
+// Utility functions
+const createPath = (points: { x: number; y: number }[]): string => {
+  if (points.length === 0) return '';
 
-  if (points.length < 2) return "";
   let path = `M${points[0].x},${points[0].y}`;
 
-  for (let i = 0; i < points.length - 1; i++) {
-    const p0 = points[i - 1] || points[i];
-    const p1 = points[i];
-    const p2 = points[i + 1];
-    const p3 = points[i + 2] || p2;
+  for (let i = 1; i < points.length; i++) {
+    const prevPoint = points[i - 1];
+    const currentPoint = points[i];
 
-    const cp1x = p1.x + (p2.x - p0.x) * tension;
-    const cp1y = p1.y + (p2.y - p0.y) * tension;
-    const cp2x = p2.x - (p3.x - p1.x) * tension;
-    const cp2y = p2.y - (p3.y - p1.y) * tension;
+    // Create smooth curves using quadratic bezier
+    const cpx = (prevPoint.x + currentPoint.x) / 2;
+    const cpy = prevPoint.y;
 
-    path += ` C${cp1x},${cp1y} ${cp2x},${cp2y} ${p2.x},${p2.y}`;
+    path += ` Q${cpx},${cpy} ${currentPoint.x},${currentPoint.y}`;
   }
 
   return path;
 };
 
-const createAreaPath = (points: { x: number; y: number }[], height: number, tension = 0.25) => {
-  if (points.length === 0) return "";
-  let path = createPath(points, tension);
-  const last = points[points.length - 1];
-  const first = points[0];
-  path += ` L${last.x},${height} L${first.x},${height} Z`;
+const createAreaPath = (
+  points: { x: number; y: number }[],
+  height: number
+): string => {
+  if (points.length === 0) return '';
+
+  let path = createPath(points);
+  const lastPoint = points[points.length - 1];
+  const firstPoint = points[0];
+
+  path += ` L${lastPoint.x},${height} L${firstPoint.x},${height} Z`;
+
   return path;
 };
 
-export const LineChart = ({
-  data,
-  config = {},
-  style,
-}: {
+// Helper function to format numbers for display
+const formatNumber = (num: number): string => {
+  if (num >= 1000000) {
+    return (num / 1000000).toFixed(1) + 'M';
+  } else if (num >= 1000) {
+    return (num / 1000).toFixed(1) + 'K';
+  }
+  return num.toFixed(0);
+};
+
+// Animated SVG Components
+const AnimatedPath = Animated.createAnimatedComponent(Path);
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+type Props = {
   data: ChartDataPoint[];
   config?: ChartConfig;
   style?: ViewStyle;
-}) => {
+};
+
+export const LineChart = ({ data, config = {}, style }: Props) => {
   const [containerWidth, setContainerWidth] = useState(300);
-  const [selectedPoint, setSelectedPoint] = useState<number | null>(null);
 
   const {
-    height = 220,
+    height = 200,
     padding = 20,
     showGrid = true,
     showLabels = true,
-    gradient = true,
-    showYLabels = true,
-    yLabelCount = 4,
-    yAxisWidth = 28,
-    curveSmoothness = 0.25,
     animated = true,
-    duration = 2000,
-    interactive = true,
+    duration = 1000,
+    gradient = false,
+    interactive = false,
+    showYLabels = true,
+    yLabelCount = 5,
+    yAxisWidth = 20,
   } = config;
 
-  const chartWidth = containerWidth || 300;
-  const lineColor = config.lineColor || useColor("primary");
-  const pointColor = config.pointColor || lineColor;
-  const startFillColor = config.startFillColor || lineColor;
-  const endFillColor = config.endFillColor || lineColor;
-  const mutedColor = useColor("mutedForeground");
+  // Use measured width or fallback to config width or default
+  const chartWidth = containerWidth || config.width || 300;
+
+  const primaryColor = useColor('primary');
+  const mutedColor = useColor('mutedForeground');
+
   const animationProgress = useSharedValue(0);
+  const touchX = useSharedValue(0);
+  const showTooltip = useSharedValue(false);
 
-const AnimatedPath = Animated.createAnimatedComponent(Path);
-
-const animatedLineProps = useAnimatedProps(() => ({
-  strokeDasharray: [animationProgress.value * 1000, 1000],
-}));
-
-const animatedAreaProps = useAnimatedProps(() => ({
-  opacity: animationProgress.value,
-}));
-  const bubbleX = useSharedValue(0);
-  const bubbleY = useSharedValue(0);
-  const bubbleOpacity = useSharedValue(0);
-
-  const handleLayout = (e: LayoutChangeEvent) => {
-    const { width } = e.nativeEvent.layout;
-    if (width > 0) setContainerWidth(width);
+  const handleLayout = (event: LayoutChangeEvent) => {
+    const { width: measuredWidth } = event.nativeEvent.layout;
+    if (measuredWidth > 0) {
+      setContainerWidth(measuredWidth);
+    }
   };
 
-  useFocusEffect(
-  useCallback(() => {
-    animationProgress.value = 0;
+  useEffect(() => {
     if (animated) {
       animationProgress.value = withTiming(1, { duration });
     } else {
       animationProgress.value = 1;
     }
-  }, [data, animated, duration]));
+  }, [data, animated, duration]);
 
   if (!data.length) return null;
 
   const maxValue = Math.max(...data.map((d) => d.y));
   const minValue = Math.min(...data.map((d) => d.y));
-  const range = maxValue - minValue || 1;
+  const valueRange = maxValue - minValue || 1;
 
-  const leftPad = showYLabels ? padding + yAxisWidth -12 : padding;
-  const innerWidth = chartWidth - leftPad - padding;
+  // Adjust padding to account for y-axis labels
+  const leftPadding = showYLabels ? padding + yAxisWidth : padding;
+  const innerChartWidth = chartWidth - leftPadding - padding;
   const chartHeight = height - padding * 2;
 
-  const points = data.map((p, i) => ({
-    x: leftPad + (i / (data.length - 1)) * innerWidth,
-    y: padding + ((maxValue - p.y) / range) * chartHeight,
+  // Convert data to screen coordinates
+  const points = data.map((point, index) => ({
+    x: leftPadding + (index / (data.length - 1)) * innerChartWidth,
+    y: padding + ((maxValue - point.y) / valueRange) * chartHeight,
   }));
 
- const path = createPath(points, curveSmoothness);
-const areaPath = createAreaPath(points, height - padding, curveSmoothness);
+  const pathData = createPath(points);
+  const areaPathData = gradient ? createAreaPath(points, height - padding) : '';
 
-
-  const yLabels = Array.from({ length: yLabelCount }, (_, i) => {
-    const ratio = i / (yLabelCount - 1);
-    return {
-      value: Math.round(maxValue - ratio * range),
-      y: padding + ratio * chartHeight,
-    };
-  });
-
-  const tooltipStyle = useAnimatedStyle(() => ({
-    opacity: bubbleOpacity.value,
-    transform: [
-      { translateX: bubbleX.value - 18 },
-      { translateY: bubbleY.value - 45 },
-      { scale: withSpring(bubbleOpacity.value ? 1 : 0.8) },
-    ],
-  }));
-
-  const handleSelect = (i: number) => {
-    if (selectedPoint === i) {
-      setSelectedPoint(null);
-      bubbleOpacity.value = withTiming(0, { duration: 200 });
-    } else {
-      setSelectedPoint(i);
-      bubbleX.value = withTiming(points[i].x);
-      bubbleY.value = withSpring(points[i].y);
-      bubbleOpacity.value = withTiming(1, { duration: 250 });
+  // Generate y-axis labels
+  const yAxisLabels = [];
+  if (showYLabels) {
+    for (let i = 0; i < yLabelCount; i++) {
+      const ratio = i / (yLabelCount - 1);
+      const value = maxValue - ratio * valueRange;
+      const y = padding + ratio * chartHeight;
+      yAxisLabels.push({ value, y });
     }
-  };
+  }
 
-  const gesture = Gesture.Tap().onEnd((e) => {
-    "worklet";
-    const { x, y } = e;
-    let closest = 0;
-    let minDist = Infinity;
-    points.forEach((p, i) => {
-      const dx = p.x - x;
-      const dy = p.y - y;
-      const d = Math.sqrt(dx * dx + dy * dy);
-      if (d < minDist) {
-        minDist = d;
-        closest = i;
+  // Fixed animated props for SVG components
+  const areaAnimatedProps = useAnimatedProps(() => ({
+    strokeDasharray: animated
+      ? `${animationProgress.value * 1000} 1000`
+      : undefined,
+  }));
+
+  const lineAnimatedProps = useAnimatedProps(() => ({
+    strokeDasharray: animated
+      ? `${animationProgress.value * 1000} 1000`
+      : undefined,
+  }));
+
+  // Pan gesture using new Gesture API
+  const panGesture = Gesture.Pan()
+    .onStart((event) => {
+      if (interactive) {
+        touchX.value = event.x;
+        showTooltip.value = true;
+      }
+    })
+    .onUpdate((event) => {
+      if (interactive) {
+        touchX.value = event.x;
+      }
+    })
+    .onEnd(() => {
+      if (interactive) {
+        showTooltip.value = false;
       }
     });
-    if (minDist < 40) scheduleOnRN(handleSelect, closest);
-  });
 
   return (
-    <View style={[{ width: "100%", height }, style]} onLayout={handleLayout}>
-      <GestureDetector gesture={gesture}>
-        <View>
+    <View style={[{ width: '100%', height }, style]} onLayout={handleLayout}>
+      <GestureDetector gesture={panGesture}>
+        <Animated.View>
           <Svg width={chartWidth} height={height}>
             <Defs>
               {gradient && (
-                <LinearGradient id="gradient" x1="0" y1="0" x2="0" y2="1">
-                  <Stop offset="0%" stopColor={startFillColor} stopOpacity="0.25" />
-                  <Stop offset="100%" stopColor={endFillColor} stopOpacity="0.05" />
+                <LinearGradient id='gradient' x1='0%' y1='0%' x2='0%' y2='100%'>
+                  <Stop
+                    offset='0%'
+                    stopColor={primaryColor}
+                    stopOpacity='0.3'
+                  />
+                  <Stop
+                    offset='100%'
+                    stopColor={primaryColor}
+                    stopOpacity='0.05'
+                  />
                 </LinearGradient>
               )}
             </Defs>
 
-            {/* Eje Y */}
+            {/* Y-axis labels */}
             {showYLabels && (
-              <Line
-                x1={leftPad}
-                y1={padding}
-                x2={leftPad}
-                y2={height - padding}
-                stroke={mutedColor}
-                strokeWidth={0.8}
+              <G>
+                {yAxisLabels.map((label, index) => (
+                  <SvgText
+                    key={`y-label-${index}`}
+                    x={leftPadding - 10}
+                    y={label.y + 4}
+                    textAnchor='end'
+                    fontSize={10}
+                    fill={mutedColor}
+                  >
+                    {formatNumber(label.value)}
+                  </SvgText>
+                ))}
+              </G>
+            )}
+
+            {/* Grid lines */}
+            {showGrid && (
+              <G>
+                {/* Horizontal grid lines */}
+                {yAxisLabels.map((label, index) => (
+                  <Line
+                    key={`grid-h-${index}`}
+                    x1={leftPadding}
+                    y1={label.y}
+                    x2={chartWidth - padding}
+                    y2={label.y}
+                    stroke={mutedColor}
+                    strokeWidth={0.5}
+                    opacity={0.3}
+                  />
+                ))}
+
+                {/* Vertical grid lines */}
+                {points.map((point, index) => (
+                  <Line
+                    key={`grid-v-${index}`}
+                    x1={point.x}
+                    y1={padding}
+                    x2={point.x}
+                    y2={height - padding}
+                    stroke={mutedColor}
+                    strokeWidth={0.5}
+                    opacity={0.2}
+                  />
+                ))}
+              </G>
+            )}
+
+            {/* Area fill */}
+            {gradient && (
+              <AnimatedPath
+                d={areaPathData}
+                fill='url(#gradient)'
+                animatedProps={areaAnimatedProps}
               />
             )}
 
-            {/* Cuadrícula */}
-            {showGrid &&
-              yLabels.map((l, i) => (
-                <Line
-                  key={i}
-                  x1={leftPad}
-                  y1={l.y}
-                  x2={chartWidth - padding}
-                  y2={l.y}
-                  stroke={mutedColor}
-                  strokeWidth={0.5}
-                  opacity={0.3}
-                />
-              ))}
+            {/* Line path */}
+            <AnimatedPath
+              d={pathData}
+              stroke={primaryColor}
+              strokeWidth={2}
+              fill='none'
+              strokeLinecap='round'
+              strokeLinejoin='round'
+              animatedProps={lineAnimatedProps}
+            />
 
-            {/* Etiquetas del eje Y */}
-            {showYLabels &&
-              yLabels.map((l, i) => (
-                <SvgText
-                  key={`ylabel-${i}`}
-                  x={leftPad - 8}
-                  y={l.y + 3}
-                  fontSize={10}
-                  textAnchor="end"
-                  fill={mutedColor}
-                >
-                  {l.value}
-                </SvgText>
-              ))}
+            {/* Data points */}
+            {points.map((point, index) => {
+              const pointAnimatedProps = useAnimatedProps(() => ({
+                opacity: animationProgress.value,
+              }));
 
-            {/* Área y línea */}
-{gradient && (
-  <AnimatedPath
-    d={areaPath}
-    fill="url(#gradient)"
-    animatedProps={animatedAreaProps}
-  />
-)}
-<AnimatedPath
-  d={path}
-  stroke={lineColor}
-  strokeWidth={2}
-  fill="none"
-  animatedProps={animatedLineProps}
-/>
-            {/* Puntos */}
-            {points.map((p, i) => (
-              <G key={i}>
-                <Circle
-                  cx={p.x}
-                  cy={p.y}
-                  r={selectedPoint === i ? 6 : 4}
-                  fill={selectedPoint === i ? lineColor : pointColor}
+              const pointAnimatedStyle = useAnimatedStyle(() => ({
+                transform: [
+                  {
+                    scale: withDelay(
+                      index * 50,
+                      withSpring(animationProgress.value)
+                    ),
+                  },
+                ],
+              }));
+
+              return (
+                <AnimatedCircle
+                  key={`point-${index}`}
+                  cx={point.x}
+                  cy={point.y}
+                  r={4}
+                  fill={primaryColor}
+                  animatedProps={pointAnimatedProps}
                 />
+              );
+            })}
+
+            {/* X-axis labels */}
+            {showLabels && (
+              <G>
+                {data.map((point, index) => (
+                  <SvgText
+                    key={`x-label-${index}`}
+                    x={points[index].x}
+                    y={height - 5}
+                    textAnchor='middle'
+                    fontSize={10}
+                    fill={mutedColor}
+                  >
+                    {point.label || point.x.toString()}
+                  </SvgText>
+                ))}
               </G>
-            ))}
-
-            {/* Etiquetas eje X */}
-            {showLabels &&
-              data.map((p, i) => (
-                <SvgText
-                  key={`xlabel-${i}`}
-                  x={points[i].x}
-                  y={height - 5}
-                  textAnchor="middle"
-                  fontSize={10}
-                  fill={mutedColor}
-                >
-                  {String(p.x)}
-                </SvgText>
-              ))}
+            )}
           </Svg>
-
-          {/* Tooltip */}
-          {selectedPoint !== null && (
-            <Animated.View style={[styles.tooltip, tooltipStyle]}>
-              <View style={[styles.tooltipBubble, { backgroundColor: lineColor }]}>
-                <Text style={styles.tooltipText}>{data[selectedPoint].y}</Text>
-              </View>
-            </Animated.View>
-          )}
-        </View>
+        </Animated.View>
       </GestureDetector>
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  tooltip: {
-    position: "absolute",
-    width: 36,
-    height: 36,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  tooltipBubble: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-  },
-  tooltipText: {
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: 12,
-  },
-});

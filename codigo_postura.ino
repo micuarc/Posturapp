@@ -137,11 +137,11 @@ void handleClient() {
   client.println("Connection: close");
   client.println();
   client.printf(
-    "{\"pitch\":%.2f,\"roll\":%.2f,\"refPitch\":%.2f,\"refRoll\":%.2f,"
-    "\"bad\":%d,\"calibrating\":%d}",
-    pitchFiltered, rollFiltered, pitchRef, rollRef,
-    vibrating ? 1 : 0, calibrating ? 1 : 0
-  );
+  "{\"pitch\":%.2f,\"roll\":%.2f,\"refPitch\":%.2f,\"refRoll\":%.2f,"
+  "\"malaPostura\":%d,\"calibrating\":%d}",
+  pitchFiltered, rollFiltered, pitchRef, rollRef,
+  vibrating ? 1 : 0, calibrating ? 1 : 0
+);
   client.stop();
   return;
 }

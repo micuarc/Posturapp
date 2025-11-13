@@ -3,17 +3,26 @@ import { useColor } from '@/hooks/useColor';
 import { PlatformPressable } from '@react-navigation/elements';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
-import { Tabs } from 'expo-router';
-import { Home, Stars, ClipboardPlus, CircleGauge, User } from 'lucide-react-native';
+import { Tabs, Redirect } from 'expo-router';
+import { Home, Stars, ClipboardPlus, CircleGauge, User, Settings } from 'lucide-react-native';
 import React from 'react';
 import { Platform, StyleSheet } from 'react-native';
 import { Circle } from 'react-native-svg';
+import { useAuth } from '@/helpers/AuthContext';
 
 export default function TabLayout() {
   const primary = useColor('primary');
+  const { usuario, cargando } = useAuth();
+
+  if (cargando) {
+    return null;
+  }
+
+  if (!usuario) {
+    return <Redirect href="/login" />;
+  }
 
   return (
-
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: "#FF9966",
@@ -83,6 +92,15 @@ export default function TabLayout() {
           ),
         }}
       />
+        <Tabs.Screen
+          name='configuracion'
+          options={{
+            title: 'Config',
+            tabBarIcon: ({ color }) => (
+              <Icon name={Settings} size={24} color={color} />
+            ),
+          }}
+        />
       <Tabs.Screen
         name='perfil'
         options={{
@@ -92,24 +110,6 @@ export default function TabLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name='diario'
-        options={{
-          title: 'Diario',
-          tabBarIcon: ({ color }) => (
-            <Icon name={User} size={24} color={color} />
-          ),
-        }}
-      />
-       <Tabs.Screen
-        name='login'
-        options={{
-          title: 'Login',
-          tabBarIcon: ({ color }) => (
-            <Icon name={ClipboardPlus} size={24} color={color} />
-          ),
-        }}
-      /> 
     </Tabs>
   );
 }

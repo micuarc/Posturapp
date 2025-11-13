@@ -1,80 +1,203 @@
-import React, { useState } from "react";
-import { StyleSheet, Image, Alert } from "react-native";
-import { useRouter } from "expo-router";
-import { Camera, Edit3, User, Cake, Transgender, Ruler, Weight, Dumbbell, LogOut, Key, DraftingCompass } from "lucide-react-native";
+import React, { useCallback } from "react";
+import { StyleSheet, Image, Alert, Pressable } from "react-native";
+import { useRouter, useFocusEffect } from "expo-router";
+import {
+  Camera,
+  Edit3,
+  User,
+  Cake,
+  Transgender,
+  Ruler,
+  Weight,
+  Dumbbell,
+  LogOut,
+  Key,
+  DraftingCompass,
+} from "lucide-react-native";
+import dayjs from "dayjs";
+
 import { ScrollView } from "@/components/ui/scroll-view";
 import { View } from "@/components/ui/view";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/helpers/AuthContext";
+import { useSQLiteContext } from "expo-sqlite";
+import { useCargaPerfil } from "@/hooks/useCargaPerfil";
+import { dbDebugger } from "@/utils/dbDebugger";
+import { normalizarCaseString } from "@/helpers/NormalizarCaseString";
+import { getUserIconSource } from "@/helpers/UserIcons";
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { usuario, logout } = useAuth();
+  const db = useSQLiteContext();
+  const { perfil, cargando, error, cargarPerfil } = useCargaPerfil(
+    db,
+    usuario?.id
+  );
 
-  const [userData] = useState({
-    name: "María González",
-    birthDate: "15/03/1990",
-    gender: "Femenino",
-    height: "165 cm",
-    weight: "62 kg",
-    muscle: "28%",
-    fat: "22%",
-  });
+  useFocusEffect(
+    useCallback(() => {
+      console.log("🔄 Pantalla de perfil enfocada, recargando datos...");
+      if (usuario?.id) {
+        cargarPerfil();
+      }
+    }, [usuario?.id])
+  );
 
-  const handleEditProfile = () => Alert.alert("Editar Perfil", "Funcionalidad no implementada");
-  const handleChangePassword = () => Alert.alert("Cambiar Contraseña", "Funcionalidad no implementada");
+  const handleDebugDatos = async () => {
+    if (!usuario?.id) return;
+
+    console.log("=== DEBUG PERFIL ===");
+    console.log("Usuario ID:", usuario.id);
+    console.log("Perfil cargado:", perfil);
+
+    await dbDebugger.verUsuario(db, usuario.id);
+  };
+
+  const handleEditarPerfil = () => router.push("/(tabs)/perfil/editar");
+
+  const handleCambiarPassword = () =>
+    Alert.alert(
+      "Cambiar Contraseña",
+      "Panel no implementado. Intenta otro día."
+    ); 
+
   const handleLogout = () =>
     Alert.alert("Cerrar Sesión", "¿Deseas cerrar sesión?", [
       { text: "Cancelar", style: "cancel" },
-      { text: "Cerrar Sesión", onPress: () => router.push("/login") },
+      {
+        text: "Cerrar Sesión",
+        onPress: async () => {
+          await logout();
+          router.replace("/login");
+        },
+      },
     ]);
+
+  const calcularEdad = (fechaNacimiento: string | null): string => {
+    if (!fechaNacimiento) return "No especificada";
+
+    try {
+      const hoy = dayjs();
+      const nacimiento = dayjs(fechaNacimiento);
+
+      if (!nacimiento.isValid()) return "No especificada";
+
+      const edad = hoy.diff(nacimiento, "year");
+      return `${edad} años`;
+    } catch (error) {
+      console.error("Error calculando edad:", error);
+      return "No especificada";
+    }
+  };
+
+  if (cargando) {
+    return (
+      <ScrollView style={styles.scrollView}>
+        <View
+          style={[
+            styles.container,
+            { justifyContent: "center", alignItems: "center" },
+          ]}
+        >
+          <Text style={styles.title}>Cargando perfil...</Text>
+        </View>
+      </ScrollView>
+    );
+  }
+
+  if (!usuario) {
+    return (
+      <ScrollView style={styles.scrollView}>
+        <View
+          style={[
+            styles.container,
+            { justifyContent: "center", alignItems: "center" },
+          ]}
+        >
+          <Text style={styles.title}>Usuario no autenticado</Text>
+          <Button onPress={() => router.replace("/login")}>Ir al inicio</Button>
+        </View>
+      </ScrollView>
+    );
+  }
+
+  const userData = {
+    name: perfil?.nombre
+      ? `${perfil.nombre} ${perfil.apellido || ""}`.trim()
+      : usuario.email,
+    email: usuario.email,
+    age: calcularEdad(perfil?.fechaNacimiento || null),
+    gender: perfil?.genero || "No especificado",
+    height: perfil?.alturaCm ? `${perfil.alturaCm} cm` : "No especificada",
+    weight: perfil?.pesoKg ? `${perfil.pesoKg} kg` : "No especificado",
+    muscle: perfil?.porcMusculo ? `${perfil.porcMusculo}%` : "No especificado",
+    fat: perfil?.porcGrasa ? `${perfil.porcGrasa}%` : "No especificado",
+  };
 
   return (
     <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-      <View style={styles.container}>
-        {/* Header */}
-        <Text variant="heading" style={styles.title}>
-          Perfil de Usuario
-        </Text>
-        <Text variant="subtitle" style={styles.subtitle}>
-          Información personal y física
-        </Text>
+      <View style={styles.inner}>
+        <View style={styles.header}>
+          <View style={{ flex: 1 }}>
+            <Text variant="heading" style={styles.title}>
+              Perfil de Usuario
+            </Text>
+            <Text variant="subtitle" style={styles.subtitle}>
+              Información personal y física
+            </Text>
+          </View>
+          <Button
+            icon={(props) => <Edit3 {...props} color="#FFF0E6" />}
+            size="icon"
+            style={styles.headerIcon}
+            onPress={handleEditarPerfil}
+          />
+        </View>
 
-        {/* Avatar */}
         <View style={styles.avatarContainer}>
-          <View style={styles.avatarWrapper}>
-            <Image
-              source={{
-                uri: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=900",
-              }}
-              style={styles.avatar}
-            />
+          <Pressable style={styles.avatarWrapper} onPress={handleEditarPerfil}>
+            <View style={styles.avatarBg}>
+              {perfil?.userIcon ? (
+                <Image
+                  source={getUserIconSource(perfil.userIcon) as any}
+                  style={styles.avatar}
+                  resizeMode="contain"
+                />
+              ) : (
+                <View style={styles.defaultAvatarWrapper}>
+                  <User color="#FF9966" size={70} strokeWidth={2} />
+                </View>
+              )}
+            </View>
             <View style={styles.cameraButton}>
               <Camera color="white" size={18} />
             </View>
-          </View>
-          <Text style={styles.userName}>{userData.name}</Text>
+          </Pressable>
+          <Text style={styles.userName}>{normalizarCaseString(userData.name)}</Text>
+          <Text style={styles.userEmail}>{userData.email}</Text>
         </View>
 
-        {/* Información personal */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Información Personal</Text>
-            <Edit3 color="#FF9966" size={20} onPress={handleEditProfile} />
+            <Edit3 color="#FF9966" size={20} onPress={handleEditarPerfil} />
           </View>
 
           <View style={styles.infoRow}>
             <User color="#FF9966" size={20} />
             <View style={styles.infoText}>
               <Text style={styles.infoLabel}>Nombre</Text>
-              <Text style={styles.infoValue}>{userData.name}</Text>
+              <Text style={styles.infoValue}>{normalizarCaseString(userData.name)}</Text>
             </View>
           </View>
 
           <View style={styles.infoRow}>
             <Cake color="#FF9966" size={20} />
             <View style={styles.infoText}>
-              <Text style={styles.infoLabel}>Fecha de nacimiento</Text>
-              <Text style={styles.infoValue}>{userData.birthDate}</Text>
+              <Text style={styles.infoLabel}>Edad</Text>
+              <Text style={styles.infoValue}>{userData.age}</Text>
             </View>
           </View>
 
@@ -82,14 +205,18 @@ export default function ProfileScreen() {
             <Transgender color="#FF9966" size={20} />
             <View style={styles.infoText}>
               <Text style={styles.infoLabel}>Género</Text>
-              <Text style={styles.infoValue}>{userData.gender}</Text>
+              <Text style={styles.infoValue}>{normalizarCaseString(userData.gender)}</Text>
             </View>
           </View>
         </View>
 
-        {/* Información física */}
+
         <View style={styles.card}>
+          
+                    <View style={styles.cardHeader}>
+
           <Text style={styles.cardTitle}>Información Física</Text>
+          </View>
 
           <View style={styles.infoRow}>
             <Ruler color="#FF9966" size={20} />
@@ -124,31 +251,21 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Botones */}
-        <Button
-          size="lg"
-          style={[styles.button, { backgroundColor: "#FF9966" }]}
-          onPress={handleEditProfile}
-        >
-          Editar Perfil
-        </Button>
-
         <Button
           size="lg"
           variant="outline"
-          style={[styles.button, { borderColor: "#FF9966" }]}
-          onPress={handleChangePassword}
-          icon={Key}
+          style={[styles.button, { borderColor: "#FF9966", backgroundColor: "#FFFFFF" }]}
+          onPress={handleCambiarPassword}
+          icon={(props) => <Key {...props} color="#FF9966" />}
         >
           Cambiar Contraseña
         </Button>
 
         <Button
           size="lg"
-          variant="outline"
-          style={[styles.button, { borderColor: "#E57373" }]}
+          style={[styles.button, { backgroundColor: "#ff8266ff" }]}
           onPress={handleLogout}
-          icon={LogOut}
+          icon={(props) => <LogOut {...props} color="#FFFFFF" />}
         >
           Cerrar Sesión
         </Button>
@@ -158,25 +275,35 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  header: {
+    justifyContent: "space-between",
+    flexDirection: "row",
+    marginBottom: 10,
+  },
   scrollView: {
     flex: 1,
-    backgroundColor: "#FFF9F2",
-    paddingHorizontal: 20,
-    paddingTop: 60,
+    backgroundColor: "#FFF9F2",  // Cambiado de #FFF5E6 a #FFF9F2
   },
   container: {
     flex: 1,
+    backgroundColor: "#FFF9F2",  // Cambiado de #FFF5E6 a #FFF9F2
     paddingBottom: 80,
   },
+  inner: {
+    padding: 20,
+    paddingTop: 60,
+  },
   title: {
-    color: "#8B5A2B",
-    fontWeight: "700",
     fontSize: 32,
+    fontWeight: "700",
+    color: "#8B5A2B",
+    marginBottom: 4,
   },
   subtitle: {
+    fontSize: 16,
     color: "#A0522D",
     opacity: 0.8,
-    marginBottom: 20,
+    marginBottom: 12,
   },
   avatarContainer: {
     alignItems: "center",
@@ -185,12 +312,24 @@ const styles = StyleSheet.create({
   avatarWrapper: {
     position: "relative",
   },
+  avatarBg: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: "#FFF0E6", // antes: "#FFE5CC"
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 10,
+    borderWidth: 1,             // borde suave
+    borderColor: "#FFDCC7",
+  },
   avatar: {
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    borderWidth: 4,
-    borderColor: "#FFE5CC",
+    width: 110,
+    height: 110,
+    borderRadius: 0,
+    borderWidth: 0,
+    borderColor: "transparent",
+    backgroundColor: "transparent", // la imagen queda sin fondo
   },
   cameraButton: {
     position: "absolute",
@@ -206,10 +345,23 @@ const styles = StyleSheet.create({
     fontSize: 22,
     marginTop: 10,
   },
+  userEmail: {
+    color: "#A0522D",
+    fontSize: 16,
+    marginTop: 4,
+    opacity: 0.7,
+  },
+  headerIcon: {
+    backgroundColor: "#FF9966",
+    borderWidth: 1,
+    borderColor: "#FFDCC7",
+    borderRadius: 999,
+  },
   card: {
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 16,
     borderWidth: 1,
     borderColor: "#FFE5CC",
     marginBottom: 20,
@@ -244,5 +396,26 @@ const styles = StyleSheet.create({
   button: {
     marginBottom: 16,
     borderRadius: 16,
+  },
+  debugButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFE5CC",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    gap: 8,
+  },
+  debugButtonText: {
+    color: "#8B5A2B",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  defaultAvatarWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 110,
+    height: 110,
   },
 });

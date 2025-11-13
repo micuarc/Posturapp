@@ -1,41 +1,51 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export interface Lectura {
   pitch: number;
   roll: number;
   refPitch: number;
   refRoll: number;
-  bad: number;
+  malaPostura: number;
   calibrating?: number;
+  timestamp: string;
 }
-
-
-let isFetching = false;
 
 export function useWifiSensor(ip: string) {
   const [lectura, setLectura] = useState<Lectura | null>(null);
   const [connected, setConnected] = useState(false);
+  const isFetching = useRef(false);
+  
 
   useEffect(() => {
     if (!ip) return;
     const interval = setInterval(async () => {
-      if (isFetching) return;
-      isFetching = true;
+      if (isFetching.current) return;
+      isFetching.current = true;
 
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 3000);
 
       try {
-        const res = await fetch(`http://${ip}/data`, { signal: controller.signal });
+        const res = await fetch(`http://${ip}/data`, {
+          signal: controller.signal,
+        });
         if (!res.ok) throw new Error("No response");
         const data = await res.json();
-        setLectura(data);
+        setLectura({
+          pitch: data.pitch,
+          roll: data.roll,
+          refPitch: data.refPitch,
+          refRoll: data.refRoll,
+          malaPostura: data.malaPostura,
+          calibrating: data.calibrating,
+          timestamp: new Date().toISOString(),
+        });
         setConnected(true);
       } catch {
         setConnected(false);
       } finally {
         clearTimeout(timeout);
-        isFetching = false;
+        isFetching.current = false;
       }
     }, 1500);
 

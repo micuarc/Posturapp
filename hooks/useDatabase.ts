@@ -1,68 +1,70 @@
 import * as SQLite from "expo-sqlite";
 import { useEffect, useState } from "react";
 import { Lectura } from "./useWifiSensor";
+import { useAuth } from "@/helpers/AuthContext";
 
 export interface Registro {
   id?: number;
   fecha: string;
-  minutos: number;
-  activaciones: number;
   pitch: number;
   roll: number;
   refPitch: number;
   refRoll: number;
   malaPostura: number;
+  userId: number | null;
 }
 
+
 export function useDatabase(db: SQLite.SQLiteDatabase) {
-  const guardar = async (
-    minutos: number,
-    activaciones: number,
-    pitch: number,
-    roll: number,
-    refPitch: number,
-    refRoll: number,
-    malaPostura: number
-  ) => {
+  const { usuario } = useAuth();
+
+  const guardar = async (lectura : Lectura | null) => {
     if (!db) {
       console.warn("Base de datos aún no lista, omitiendo guardado");
       return;
     }
+    if (!lectura) {
+      console.warn("Lectura no regisqtrada, omitiendo guardado");
+      return;
+    }
+    const userId = usuario?.id ?? null;
+    if (lectura.calibrating === 1) return;
+
     try {
       await db.runAsync(
         `INSERT INTO registros 
-          (fecha, minutos, activaciones, pitch, roll, refPitch, refRoll, malaPostura)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
+          (fecha, pitch, roll, refPitch, refRoll, malaPostura, userId)
+          VALUES (?, ?, ?, ?, ?, ?, ?);`,
         [
-          new Date().toISOString(),
-          minutos,
-          activaciones,
-          pitch,
-          roll,
-          refPitch,
-          refRoll,
-          malaPostura,
+          lectura.timestamp,
+          lectura.pitch,
+          lectura.roll,
+          lectura.refPitch,
+          lectura.refRoll,
+          lectura.malaPostura,
+          userId,
         ]
       );
     } catch (e) {
-      console.log(e);
+      console.log("Error al guardar regsitro: ", e);
     }
   };
 
   const insertarLecturas = async (lecturas: Lectura[]): Promise<void> => {
+    const userId = usuario?.id ?? null;
     if (!lecturas.length) return;
     if (db === null) {
       console.warn("insertarLecturas db is null");
       return;
     }
 
-    let sql = `INSERT INTO registros(fecha, minutos, activaciones, pitch, roll, refPitch, refRoll, malaPostura)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+    let sql = `INSERT INTO registros(fecha, pitch, roll, refPitch, refRoll, malaPostura, userId)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`;
 
-    console.log("prepare");
     // prepared sql: pone string del sql en cache, mejora el rendimiento (ejecucion + rpáida)
     const prepared = await db.prepareAsync(sql);
     console.log("prepared");
+    
     try {
       await db.withExclusiveTransactionAsync(async () => {
         console.log("empieza transaccion");
@@ -72,14 +74,13 @@ export function useDatabase(db: SQLite.SQLiteDatabase) {
           await promise;
           console.log('empieza query: ', i)
           await prepared.executeAsync([
-            new Date().toISOString(),
-            0,
-            0,
+            lectura.timestamp,
             lectura.pitch,
             lectura.roll,
             lectura.refPitch,
             lectura.refRoll,
-            lectura.bad,
+            lectura.malaPostura === 1 ? 1 : 0,
+            userId,
           ]);
           console.log('termina query: ', i)
         }, Promise.resolve());
@@ -93,15 +94,15 @@ export function useDatabase(db: SQLite.SQLiteDatabase) {
   };
 
   const obtener = async (): Promise<Registro[]> => {
+    const userId = usuario?.id ?? null;
     if (!db) {
       console.warn("Base de datos aún no lista, omitiendo guardado");
       return [];
     }
     let registros: Registro[] = [];
     try {
-      registros = (await db.getAllAsync(
-        "SELECT * FROM registros ORDER BY fecha DESC LIMIT 50;"
-      )) as Registro[];
+      registros = (await db.getAllAsync("SELECT * FROM registros WHERE fecha >= date('now', 'start of day') ORDER BY fecha ASC;"
+, [userId])) as Registro[];
     } catch (e) {
       console.log(e);
     }

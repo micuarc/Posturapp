@@ -30,10 +30,19 @@
       "favicon": "./assets/images/icon.png"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-notifications",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "136959e2-d216-49fc-879b-d5b59ae1e2a8"
+      }
+    },
+    "owner": "contrerasdelgadoadan"
   }
 }
