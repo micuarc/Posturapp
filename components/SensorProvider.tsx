@@ -16,7 +16,6 @@ const SensorProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const [ip, setIp] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // cargar la IP desde SQLite (se recarga cuando cambia refreshKey)
   useEffect(() => {
     (async () => {
       const row = await db.getFirstAsync<{ value: string }>(
@@ -27,7 +26,6 @@ const SensorProvider: FC<{ children: ReactNode }> = ({ children }) => {
     })();
   }, [db, refreshKey]);
 
-  // Polling cada 5 segundos para detectar cambios en la IP
   useEffect(() => {
     const interval = setInterval(() => {
       setRefreshKey(k => k + 1);

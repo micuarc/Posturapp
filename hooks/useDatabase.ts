@@ -1,8 +1,7 @@
+import { useCallback } from "react";
 import * as SQLite from "expo-sqlite";
-import { useEffect, useState } from "react";
 import { Lectura } from "./useWifiSensor";
 import { useAuth } from "@/helpers/AuthContext";
-
 export interface Registro {
   id?: number;
   fecha: string;
@@ -14,99 +13,69 @@ export interface Registro {
   userId: number | null;
 }
 
-
 export function useDatabase(db: SQLite.SQLiteDatabase) {
   const { usuario } = useAuth();
 
-  const guardar = async (lectura : Lectura | null) => {
-    if (!db) {
-      console.warn("Base de datos aún no lista, omitiendo guardado");
-      return;
-    }
-    if (!lectura) {
-      console.warn("Lectura no regisqtrada, omitiendo guardado");
-      return;
-    }
-    const userId = usuario?.id ?? null;
-    if (lectura.calibrating === 1) return;
+  const insertarLecturas = useCallback(
+    async (lecturas: Lectura[]): Promise<void> => {
+      if (!db || !lecturas.length) return;
+      if (!usuario?.id) {
+        console.warn("insertarLecturas: usuario no definido");
+        return;
+      }
 
-    try {
-      await db.runAsync(
-        `INSERT INTO registros 
-          (fecha, pitch, roll, refPitch, refRoll, malaPostura, userId)
-          VALUES (?, ?, ?, ?, ?, ?, ?);`,
-        [
-          lectura.timestamp,
-          lectura.pitch,
-          lectura.roll,
-          lectura.refPitch,
-          lectura.refRoll,
-          lectura.malaPostura,
-          userId,
-        ]
+      const stmt = await db.prepareAsync(
+        `INSERT INTO registros (
+          fecha,
+          pitch,
+          roll,
+          refPitch,
+          refRoll,
+          malaPostura,
+          userId
+        ) VALUES (?, ?, ?, ?, ?, ?, ?);`
       );
-    } catch (e) {
-      console.log("Error al guardar regsitro: ", e);
-    }
-  };
 
-  const insertarLecturas = async (lecturas: Lectura[]): Promise<void> => {
-    const userId = usuario?.id ?? null;
-    if (!lecturas.length) return;
-    if (db === null) {
-      console.warn("insertarLecturas db is null");
-      return;
-    }
+      try {
+        await db.withExclusiveTransactionAsync(async () => {
+          for (const lectura of lecturas) {
+            await stmt.executeAsync([
+              lectura.timestamp,
+              lectura.pitch,
+              lectura.roll,
+              lectura.refPitch,
+              lectura.refRoll,
+              lectura.malaPostura === 1 ? 1 : 0,
+              usuario.id,
+            ]);
+          }
+        });
+      } catch (error) {
+        console.error("insertarLecturas falló", error);
+        throw error;
+      } finally {
+        await stmt.finalizeAsync();
+      }
+    },
+    [db, usuario?.id]
+  );
 
-    let sql = `INSERT INTO registros(fecha, pitch, roll, refPitch, refRoll, malaPostura, userId)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`;
-
-    // prepared sql: pone string del sql en cache, mejora el rendimiento (ejecucion + rpáida)
-    const prepared = await db.prepareAsync(sql);
-    console.log("prepared");
-    
+  const obtener = useCallback(async (): Promise<Registro[]> => {
+    if (!db || !usuario?.id) return [];
     try {
-      await db.withExclusiveTransactionAsync(async () => {
-        console.log("empieza transaccion");
-        // foreach no funciona con async
-        // usamos reduce para esperar varias promesas en loop
-        await lecturas.reduce(async (promise, lectura, i) => {
-          await promise;
-          console.log('empieza query: ', i)
-          await prepared.executeAsync([
-            lectura.timestamp,
-            lectura.pitch,
-            lectura.roll,
-            lectura.refPitch,
-            lectura.refRoll,
-            lectura.malaPostura === 1 ? 1 : 0,
-            userId,
-          ]);
-          console.log('termina query: ', i)
-        }, Promise.resolve());
-      });
-    } catch (e) {
-      console.log("error in batch");
-      console.log(e);
-    } finally {
-      prepared.finalizeAsync();
-    }
-  };
-
-  const obtener = async (): Promise<Registro[]> => {
-    const userId = usuario?.id ?? null;
-    if (!db) {
-      console.warn("Base de datos aún no lista, omitiendo guardado");
+      return (await db.getAllAsync(
+        `SELECT *
+         FROM registros
+         WHERE userId = ?
+           AND datetime(fecha) >= datetime('now','localtime','-28 days')
+         ORDER BY datetime(fecha) DESC;`,
+        [usuario.id]
+      )) as Registro[];
+    } catch (error) {
+      console.error("obtener() falló", error);
       return [];
     }
-    let registros: Registro[] = [];
-    try {
-      registros = (await db.getAllAsync("SELECT * FROM registros WHERE fecha >= date('now', 'start of day') ORDER BY fecha ASC;"
-, [userId])) as Registro[];
-    } catch (e) {
-      console.log(e);
-    }
-    return registros;
-  };
-  return { guardar, obtener, insertarLecturas };
+  }, [db, usuario?.id]);
+
+  return { insertarLecturas, obtener };
 }

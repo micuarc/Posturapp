@@ -1,4 +1,3 @@
-// src/native/PosturaService.ts
 import { NativeModules, Platform } from "react-native";
 
 const NativePostura = Platform.OS === "android" ? NativeModules.Postura : null;

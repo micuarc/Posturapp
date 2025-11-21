@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -19,7 +19,6 @@ import {
 import { useAuth } from "@/helpers/AuthContext";
 import { usePosturaEstadisticas } from "@/hooks/usePosturaEstadisticas";
 
-// Charts
 import { ProgressRingChart } from "@/components/charts/progress-ring-chart";
 import { AreaChart } from "@/components/charts/area-chart";
 import { BarChart } from "@/components/charts/bar-chart";
@@ -32,6 +31,31 @@ export default function DashboardScreen() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const stats = usePosturaEstadisticas(refreshKey);
+
+  const rangeSummary = useMemo(() => {
+    const totalSemana = stats.areaSemanal.reduce((acc, punto) => acc + (punto?.y ?? 0), 0);
+    const totalMes = stats.barrasMensuales.reduce((acc, barra) => acc + (barra?.value ?? 0), 0);
+
+    return {
+      day: {
+        note: "en las últimas 24 h",
+        subtitle: "Alertas de hoy",
+        total: stats.totalDia,
+      },
+      week: {
+        note: "en los últimos 7 días",
+        subtitle: "Alertas de esta semana",
+        total: totalSemana,
+      },
+      month: {
+        note: "en los últimos 28 días",
+        subtitle: "Alertas de últimas 4 semanas",
+        total: totalMes,
+      },
+    };
+  }, [stats]);
+
+  const activeSummary = rangeSummary[timeRange];
 
   const handleRefresh = () => setRefreshKey((k) => k + 1);
 
@@ -75,7 +99,7 @@ export default function DashboardScreen() {
           <View>
             <Text style={styles.title}>Dashboard</Text>
             <Text style={styles.subtitle}>
-              {stats.totalActivaciones} alertas registradas
+              {activeSummary.subtitle}: {activeSummary.total}
             </Text>
           </View>
 
@@ -95,10 +119,12 @@ export default function DashboardScreen() {
           <View style={styles.statCard}>
             <View style={styles.statHeader}>
               <AlertTriangle color="#FF9966" size={18} />
-              <Text style={styles.statTitle}>Alertas totales</Text>
+              <Text style={styles.statTitle}>
+                Alertas {activeSummary.label}
+              </Text>
             </View>
-            <Text style={styles.statValue}>{stats.totalActivaciones}</Text>
-            <Text style={styles.statNote}>Acumulado general</Text>
+            <Text style={styles.statValue}>{activeSummary.total}</Text>
+            <Text style={styles.statNote}>{activeSummary.note}</Text>
           </View>
 
           <View style={styles.statCard}>
@@ -152,7 +178,7 @@ export default function DashboardScreen() {
             </View>
 
             <ProgressRingChart
-              progress={stats.porcentajeMalaDia}
+              progress={stats.porcentajeBuenaDia}
               size={180}
               strokeWidth={16}
               config={{
@@ -161,7 +187,7 @@ export default function DashboardScreen() {
                 gradient: true,
               }}
               style={{ alignSelf: "center", marginBottom: 8 }}
-              centerText={`${Math.round(stats.porcentajeMalaDia)}%`}
+              centerText={`${Math.round(stats.porcentajeBuenaDia)}%`}
             />
 
             <Text style={styles.centerText}>

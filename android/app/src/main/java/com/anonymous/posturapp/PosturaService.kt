@@ -34,7 +34,7 @@ class PosturaService : Service() {
         @JvmStatic var ENABLE_NOTIFICATION: Boolean = true
         @JvmStatic var ENABLE_SOUND: Boolean = false
 
-        @JvmStatic var sensorIp: String = ""   // <-- aquí se guarda la IP enviada desde JS
+        @JvmStatic var sensorIp: String = "" 
     }
 
     private val handler = Handler(Looper.getMainLooper())
@@ -47,7 +47,6 @@ class PosturaService : Service() {
     private var hudView: TextView? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // ← Recibe la IP enviada desde React Native
         sensorIp = intent?.getStringExtra("sensor_ip") ?: ""
         return START_STICKY
     }

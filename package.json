@@ -40,6 +40,7 @@
     "expo-symbols": "~1.0.7",
     "expo-system-ui": "~6.0.7",
     "expo-web-browser": "~15.0.7",
+    "fbemitter": "^3.0.0",
     "lucide-react-native": "^0.525.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
@@ -58,6 +59,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
+    "@types/fbemitter": "^2.0.35",
     "@types/react": "^19.1.0",
     "@types/react-native": "^0.73.0",
     "drizzle-kit": "^0.18.1",

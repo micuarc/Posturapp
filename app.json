@@ -22,18 +22,25 @@
         "backgroundColor": "#0A0A0A"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.posturapp"
+      "usesCleartextTraffic": true,
+      "package": "com.anonymous.posturapp",
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "ACCESS_WIFI_STATE",
+        "ACCESS_FINE_LOCATION",
+        "WAKE_LOCK",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ],
+      "networkSecurityConfig": "./android/app/src/main/res/xml/network_security_config.xml"
     },
     "web": {
       "bundler": "metro",
       "output": "static",
       "favicon": "./assets/images/icon.png"
     },
-    "plugins": [
-      "expo-router",
-      "expo-notifications",
-      "expo-secure-store"
-    ],
+    "plugins": ["expo-router", "expo-notifications", "expo-secure-store"],
     "experiments": {
       "typedRoutes": true
     },

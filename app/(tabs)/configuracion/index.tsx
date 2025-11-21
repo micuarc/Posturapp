@@ -73,7 +73,7 @@ export default function SensorSettingsScreen() {
         ["sensor_ip", ipInput.trim()]
       );
 
-      // Iniciar el servicio nativo con la nueva IP
+      // iniciar el servicio nativo con la nueva ip
       if (Platform.OS === "android" && Postura) {
         try {
           Postura.startService(ipInput.trim());
@@ -83,7 +83,6 @@ export default function SensorSettingsScreen() {
         }
       }
 
-      // Mensaje de confirmación (podrías agregar un Toast aquí)
       console.log("IP guardada correctamente:", ipInput.trim());
     } catch (e) {
       console.log("Error guardando IP:", e);

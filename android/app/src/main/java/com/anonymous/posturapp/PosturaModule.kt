@@ -16,7 +16,7 @@ class PosturaModule(private val ctx: ReactApplicationContext) :
     @ReactMethod
     fun startService(ip: String) {
         val intent = Intent(ctx, PosturaService::class.java)
-        intent.putExtra("sensor_ip", ip)  // ← Envía la IP al servicio
+        intent.putExtra("sensor_ip", ip)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             ctx.startForegroundService(intent)

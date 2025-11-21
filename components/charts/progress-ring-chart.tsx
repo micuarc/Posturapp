@@ -14,7 +14,6 @@ import Svg, {
   Text as SvgText,
 } from 'react-native-svg';
 
-// Animated SVG Components
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 interface ChartConfig {

@@ -3,7 +3,6 @@ import { ImageSource } from 'expo-image';
 export type UserIconItem = { key: string; source: ImageSource };
 
 export const USER_ICONS: UserIconItem[] = [
-  // Reemplaza estos nombres por los tuyos reales
   { key: 'Castor', source: require('@/assets/images/userIcons/beaver.png') },
   { key: 'Abejita', source: require('@/assets/images/userIcons/bee.png') },
   { key: 'Patito', source: require('@/assets/images/userIcons/ducky.png') },

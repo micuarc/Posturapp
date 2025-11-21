@@ -40,7 +40,6 @@ export const AreaChart = ({ data, config = {}, style }: Props) => {
       config={{
         ...config,
         gradient: true,
-        curveSmoothness: config.curveSmoothness ?? 0.2 // por defecto
       }}
       style={style}
     />

@@ -27,7 +27,6 @@ const OPCIONES_GENERO = [
   { label: "No Binario", value: "No Binario" },
 ];
 
-// Componente de campo con etiqueta unificada
 function LabeledField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <View style={styles.field}>
@@ -129,7 +128,7 @@ export default function EditProfileScreen() {
         peso: peso.trim() ? parseFloat(peso) : null,
         porcMusculo: porcMusculo.trim() ? parseFloat(porcMusculo) : null,
         porcGrasa: porcGrasa.trim() ? parseFloat(porcGrasa) : null,
-        userIcon: userIcon || null, // NUEVO
+        userIcon: userIcon || null, 
       });
 
       console.log('📤 Resultado de guardar:', result);
@@ -153,7 +152,6 @@ export default function EditProfileScreen() {
                 setShowDatePicker(false);
                 setShowGenderPicker(false);
                 setLoading(false);
-                // no limpiamos userIcon: lo mantiene
                 
                 setTimeout(() => {
                   router.back();
@@ -612,19 +610,17 @@ export default function EditProfileScreen() {
                 firstDayOfWeek={1}
                 onChange={handleDateChange}
                 styles={{
-                  // tamaño y centrado del día
+
                   day_cell: {
                     width: 40,
                     height: 40,
                     alignItems: "center",
                     justifyContent: "center",
                   },
-                  // texto del día
                   day_label: {
                     color: "#8B5A2B",
                     fontWeight: "600",
                   },
-                  // círculo del día seleccionado (keys correctas)
                   selected: {
                     backgroundColor: "#FF9966",
                     borderRadius: 999,
@@ -637,7 +633,6 @@ export default function EditProfileScreen() {
                     color: "#FFF",
                     fontWeight: "bold",
                   },
-                  // estilo para "hoy"
                   today: {
                     backgroundColor: "#FF9966",
                     borderRadius: 999,
@@ -696,10 +691,10 @@ const styles = StyleSheet.create({
     width: 140,
     height: 140,
     borderRadius: 70,
-    backgroundColor: "#FFE5CC", // fondo sólido de la paleta
+    backgroundColor: "#FFE5CC",
     alignItems: "center",
     justifyContent: "center",
-    padding: 10, // margen para que el icono no toque el borde
+    padding: 10,
   },
     avatar: {
     width: 110,

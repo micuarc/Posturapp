@@ -42,7 +42,6 @@ export type ChartDataPoint = {
   label?: string;
 };
 
-// Utility functions
 const createPath = (points: { x: number; y: number }[]): string => {
   if (points.length === 0) return '';
 
@@ -52,7 +51,6 @@ const createPath = (points: { x: number; y: number }[]): string => {
     const prevPoint = points[i - 1];
     const currentPoint = points[i];
 
-    // Create smooth curves using quadratic bezier
     const cpx = (prevPoint.x + currentPoint.x) / 2;
     const cpy = prevPoint.y;
 
@@ -77,7 +75,6 @@ const createAreaPath = (
   return path;
 };
 
-// Helper function to format numbers for display
 const formatNumber = (num: number): string => {
   if (num >= 1000000) {
     return (num / 1000000).toFixed(1) + 'M';
@@ -87,7 +84,6 @@ const formatNumber = (num: number): string => {
   return num.toFixed(0);
 };
 
-// Animated SVG Components
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -114,7 +110,6 @@ export const LineChart = ({ data, config = {}, style }: Props) => {
     yAxisWidth = 20,
   } = config;
 
-  // Use measured width or fallback to config width or default
   const chartWidth = containerWidth || config.width || 300;
 
   const primaryColor = useColor('primary');
@@ -145,12 +140,10 @@ export const LineChart = ({ data, config = {}, style }: Props) => {
   const minValue = Math.min(...data.map((d) => d.y));
   const valueRange = maxValue - minValue || 1;
 
-  // Adjust padding to account for y-axis labels
   const leftPadding = showYLabels ? padding + yAxisWidth : padding;
   const innerChartWidth = chartWidth - leftPadding - padding;
   const chartHeight = height - padding * 2;
 
-  // Convert data to screen coordinates
   const points = data.map((point, index) => ({
     x: leftPadding + (index / (data.length - 1)) * innerChartWidth,
     y: padding + ((maxValue - point.y) / valueRange) * chartHeight,
@@ -159,7 +152,6 @@ export const LineChart = ({ data, config = {}, style }: Props) => {
   const pathData = createPath(points);
   const areaPathData = gradient ? createAreaPath(points, height - padding) : '';
 
-  // Generate y-axis labels
   const yAxisLabels = [];
   if (showYLabels) {
     for (let i = 0; i < yLabelCount; i++) {
@@ -170,7 +162,6 @@ export const LineChart = ({ data, config = {}, style }: Props) => {
     }
   }
 
-  // Fixed animated props for SVG components
   const areaAnimatedProps = useAnimatedProps(() => ({
     strokeDasharray: animated
       ? `${animationProgress.value * 1000} 1000`
@@ -183,7 +174,6 @@ export const LineChart = ({ data, config = {}, style }: Props) => {
       : undefined,
   }));
 
-  // Pan gesture using new Gesture API
   const panGesture = Gesture.Pan()
     .onStart((event) => {
       if (interactive) {

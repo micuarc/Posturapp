@@ -13,15 +13,14 @@ import { useSQLiteContext } from "expo-sqlite";
 import { useAuth } from "@/helpers/AuthContext";
 import { usePosturaEstadisticas } from "@/hooks/usePosturaEstadisticas";
 
-const { lectura, connected, ip } = useContext(SensorContext);
 const { width } = Dimensions.get("window");
 
 export default function MonitoreoScreen() {
-  const { lectura, connected } = useContext(SensorContext);
+  const { lectura, connected, ip } = useContext(SensorContext);
   const db = useSQLiteContext();
   const { usuario } = useAuth();
-  const { guardar } = useDatabase(db);
-  const stats = usePosturaEstadisticas(0); // Usar las mismas estadísticas que dashboard
+  const { insertarLecturas } = useDatabase(db);
+  const stats = usePosturaEstadisticas(0);
 
   const [isCalibratingModal, setIsCalibratingModal] = useState(false);
   const [countdown, setCountdown] = useState(5);
@@ -55,12 +54,12 @@ export default function MonitoreoScreen() {
     if (!lectura) return;
     
     try {
-      await guardar(lectura);
+      await insertarLecturas([lectura]);
       console.log("Registro manual guardado.");
     } catch (e) {
       console.error("Error guardando manual:", e);
     }
-  }, [lectura, guardar]);
+  }, [lectura, insertarLecturas]);
 
   const colorPostura = posturaCorrecta ? "#A0D8A0" : "#FF9999";
   const colorTextoPostura = posturaCorrecta ? "#57bd57ff" : "#e94d4dff";

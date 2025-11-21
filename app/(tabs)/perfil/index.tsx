@@ -282,11 +282,11 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    backgroundColor: "#FFF9F2",  // Cambiado de #FFF5E6 a #FFF9F2
+    backgroundColor: "#FFF9F2", 
   },
   container: {
     flex: 1,
-    backgroundColor: "#FFF9F2",  // Cambiado de #FFF5E6 a #FFF9F2
+    backgroundColor: "#FFF9F2",
     paddingBottom: 80,
   },
   inner: {
@@ -316,11 +316,11 @@ const styles = StyleSheet.create({
     width: 140,
     height: 140,
     borderRadius: 70,
-    backgroundColor: "#FFF0E6", // antes: "#FFE5CC"
+    backgroundColor: "#FFF0E6", 
     alignItems: "center",
     justifyContent: "center",
     padding: 10,
-    borderWidth: 1,             // borde suave
+    borderWidth: 1,            
     borderColor: "#FFDCC7",
   },
   avatar: {
@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
     borderRadius: 0,
     borderWidth: 0,
     borderColor: "transparent",
-    backgroundColor: "transparent", // la imagen queda sin fondo
+    backgroundColor: "transparent",
   },
   cameraButton: {
     position: "absolute",
