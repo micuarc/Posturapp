@@ -242,18 +242,20 @@ export default function EditProfileScreen() {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.inner}>
         <View style={styles.header}>
-          <View style={styles.avatarBg}>
-            {userIcon ? (
-              <Image
-                source={getUserIconSource(userIcon)}
-                style={styles.avatar}
-                contentFit="contain"
-                containerStyle={{ backgroundColor: 'transparent' }}
-                variant="default"
-              />
-            ) : (
-              <User color="#FF9966" size={70} strokeWidth={2} />
-            )}
+          <View style={styles.avatarWrapper}>
+            <View style={styles.avatarBg}>
+              {userIcon ? (
+                <Image
+                  source={getUserIconSource(userIcon)}
+                  style={styles.avatar}
+                  contentFit="contain"
+                  containerStyle={{ backgroundColor: "transparent" }}
+                  variant="default"
+                />
+              ) : (
+                <User color="#FF9966" size={64} strokeWidth={2} />
+              )}
+            </View>
           </View>
           <Text style={styles.title}>Editar Perfil</Text>
           <Text style={styles.subtitle}>
@@ -685,39 +687,45 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: "center",
-    marginBottom: 32,
+    marginBottom: 28,
+    gap: 8,
+  },
+  avatarWrapper: {
+    alignSelf: "center",
+    alignItems: "center",
+    justifyContent: "center",
   },
   avatarBg: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     backgroundColor: "#FFE5CC",
     alignItems: "center",
     justifyContent: "center",
-    padding: 10,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#FFD2B3",
   },
-    avatar: {
-    width: 110,
-    height: 110,
-    // sin recorte ni borde
+  avatar: {
+    width: 86,
+    height: 86,
     borderRadius: 0,
     borderWidth: 0,
     borderColor: "transparent",
     backgroundColor: "transparent",
+    alignSelf: "center",
   },
 
   title: {
     fontSize: 32,
     fontWeight: "700",
     color: "#8B5A2B",
-    marginBottom: 4,
   },
   subtitle: {
     fontSize: 16,
     color: "#A0522D",
     opacity: 0.8,
     textAlign: "center",
-    marginBottom: 12,
   },
   card: {
     backgroundColor: "#FFF",
@@ -939,10 +947,12 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   iconPreviewCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "#FFE5CC",
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: "#FFD2B3",
+    backgroundColor: "#FFEFE1",
     alignItems: "center",
     justifyContent: "center",
   },
