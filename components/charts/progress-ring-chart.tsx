@@ -23,7 +23,7 @@ interface ChartConfig {
 }
 
 type Props = {
-  progress: number; // 0-100
+  progress: number;
   size?: number;
   strokeWidth?: number;
   config?: ChartConfig;

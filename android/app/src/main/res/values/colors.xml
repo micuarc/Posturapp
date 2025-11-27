@@ -1,6 +1,11 @@
 <resources>
-  <color name="splashscreen_background">#0A0A0A</color>
-  <color name="iconBackground">#0A0A0A</color>
-  <color name="colorPrimary">#023c69</color>
-  <color name="colorPrimaryDark">#0A0A0A</color>
+    <!-- splash icono -->
+    <color name="splashscreen_background">#FF9966</color>
+    <color name="iconBackground">#FF9966</color>
+
+    <color name="colorPrimary">#FF9966</color>
+
+    <!-- para status bar -->
+    <color name="colorPrimaryDark">#CC774F</color>
+
 </resources>

@@ -5,13 +5,17 @@
 #define MPU_ADDR 0x68
 #define ACCEL_SENS 16384.0
 
-// adaptar a tus propios pins
-const int motorPin = 12;
+//adaptar a pins propios
+const int motorPin = 26;
 const int SDA_PIN = 27;
 const int SCL_PIN = 14;
 
-const char* ssid = "Nombre_de_tu_red";
-const char* pass = "Pass_de_tu_red";
+//intensidad media-baja para motor
+const int vibrationIntensity = 130;
+
+//tus propias credenciales
+const char* ssid = "nombre_red";
+const char* pass = "pass_red";
 WiFiServer server(80);
 
 float ax, ay, az;
@@ -22,14 +26,22 @@ float pitchFiltered = 0, rollFiltered = 0;
 bool calibrating = false;
 bool referenceReady = false;
 bool vibrating = false;
+bool malaPostura = false;
 
 unsigned long calibStart = 0;
-unsigned long badPostureStart = 0;
+unsigned long malaPosturaStart = 0;
+unsigned long vibratingStart = 0;
+unsigned long lastPulseTime = 0;
 
-const float pitchThreshold = 5.0;
-const float rollThreshold = 4.0;
+const float pitchThreshold = 3.0;
+const float rollThreshold = 2.5;
 
-// accs de calibración
+const unsigned long malaPosturaThreshold = 1200;
+const unsigned long gracePeriod = 800;
+
+const unsigned long pulseDuration = 300;
+const unsigned long pulseInterval = 1500;
+
 long calibCount = 0;
 float pitchAccum = 0, rollAccum = 0;
 
@@ -38,14 +50,15 @@ void setup() {
   Serial.begin(115200);
   delay(500);
 
-  // empezar sensor 
   Wire.beginTransmission(MPU_ADDR);
   Wire.write(0x6B);
   Wire.write(0);
   Wire.endTransmission(true);
 
   computeInitialOffsets(1000);
+
   pinMode(motorPin, OUTPUT);
+  digitalWrite(motorPin, LOW);
 
   WiFi.begin(ssid, pass);
   Serial.print("Conectando a WiFi");
@@ -72,7 +85,6 @@ void loop() {
     unsigned long elapsed = millis() - calibStart;
 
     if (elapsed < 5000) {
-      // primeros 5s: usuario adopta postura correcta
     } 
     else if (elapsed < 15000) {
       pitchAccum += pitchFiltered;
@@ -93,20 +105,31 @@ void loop() {
   if (referenceReady) {
     bool badPitch = fabs(pitchFiltered - pitchRef) > pitchThreshold;
     bool badRoll  = fabs(rollFiltered - rollRef)  > rollThreshold;
-    bool badPosture = badPitch || badRoll;
+    malaPostura = badPitch || badRoll;
 
-    if (badPosture) {
-      if (badPostureStart == 0) badPostureStart = millis();
-      if (millis() - badPostureStart >= 2000 && !vibrating) {
-        digitalWrite(motorPin, HIGH);
-        vibrating = true;
+    if (malaPostura) {
+      if (malaPosturaStart == 0) {
+        malaPosturaStart = millis();
+        Serial.println("Mala postura detectada");
       }
     } else {
-      badPostureStart = 0;
-      if (vibrating) {
-        digitalWrite(motorPin, LOW);
-        vibrating = false;
-      }
+      malaPosturaStart = 0;
+    }
+  } else {
+    malaPostura = false;
+  }
+  
+  if (vibrating) {
+    unsigned long timeSinceLastPulse = millis() - lastPulseTime;
+    
+    if (timeSinceLastPulse >= pulseDuration && timeSinceLastPulse < pulseInterval) {
+      analogWrite(motorPin, 0);
+    }
+    
+    if (timeSinceLastPulse >= pulseInterval) {
+      Serial.println("Pulso de vibración");
+      lastPulseTime = millis();
+      analogWrite(motorPin, vibrationIntensity);
     }
   }
 
@@ -120,31 +143,86 @@ void handleClient() {
   String req = client.readStringUntil('\r');
   client.flush();
 
+  if (req.indexOf("/vibrate") != -1) {
+    Serial.println("Comando /vibrate recibido desde app");
+    
+    if (!vibrating) {
+      vibrating = true;
+      vibratingStart = millis();
+      lastPulseTime = millis();
+      analogWrite(motorPin, vibrationIntensity);
+    }
+
+    client.println("HTTP/1.1 200 OK");
+    client.println("Content-Type: application/json");
+    client.println("Connection: close");
+    client.println();
+    client.println("{\"status\":\"vibration_started\"}");
+    client.stop();
+    return;
+  }
+
+  if (req.indexOf("/stopvibrate") != -1) {
+    Serial.println("Comando /stopvibrate recibido desde app");
+    analogWrite(motorPin, 0);
+    vibrating = false;
+    vibratingStart = 0;
+    lastPulseTime = 0;
+
+    client.println("HTTP/1.1 200 OK");
+    client.println("Content-Type: application/json");
+    client.println("Connection: close");
+    client.println();
+    client.println("{\"status\":\"vibration_stopped\"}");
+    client.stop();
+    return;
+  }
+
   if (req.indexOf("/calibrate") != -1) {
     calibrating = true;
     referenceReady = false;
+
+    // apagar vibración si estaba activa
+    vibrating = false;
+    analogWrite(motorPin, 0);
+    vibratingStart = 0;
+    lastPulseTime = 0;
+
+    //resetear refs
     pitchRef = 0;
     rollRef = 0;
     pitchAccum = 0;
     rollAccum = 0;
     calibCount = 0;
     calibStart = millis();
+
+    client.println("HTTP/1.1 200 OK");
+    client.println("Content-Type: application/json");
+    client.println("Connection: close");
+    client.println();
+    client.println("{\"status\":\"ok\"}");
+    client.stop();
+    return;
   }
 
   if (req.indexOf("/data") != -1) {
-  client.println("HTTP/1.1 200 OK");
-  client.println("Content-Type: application/json");
-  client.println("Connection: close");
-  client.println();
-  client.printf(
-  "{\"pitch\":%.2f,\"roll\":%.2f,\"refPitch\":%.2f,\"refRoll\":%.2f,"
-  "\"malaPostura\":%d,\"calibrating\":%d}",
-  pitchFiltered, rollFiltered, pitchRef, rollRef,
-  vibrating ? 1 : 0, calibrating ? 1 : 0
-);
-  client.stop();
-  return;
-}
+    client.println("HTTP/1.1 200 OK");
+    client.println("Content-Type: application/json");
+    client.println("Connection: close");
+    client.println();
+    client.printf(
+      "{\"pitch\":%.2f,\"roll\":%.2f,"
+      "\"refPitch\":%.2f,\"refRoll\":%.2f,"
+      "\"malaPostura\":%d,\"vibrating\":%d,\"calibrating\":%d}",
+      pitchFiltered, rollFiltered,
+      pitchRef, rollRef,
+      malaPostura ? 1 : 0,
+      vibrating ? 1 : 0,
+      calibrating ? 1 : 0
+    );
+    client.stop();
+    return;
+  }
 
   client.println("HTTP/1.1 200 OK");
   client.println("Content-Type: text/html; charset=utf-8");
@@ -153,33 +231,62 @@ void handleClient() {
   client.println("<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Postura</title>");
   client.println("<meta name='viewport' content='width=device-width, initial-scale=1'>");
   client.println("<style>");
-  client.println("body{font-family:Helvetica;text-align:center;margin-top:40px;}button{background:#1976d2;color:white;border:none;padding:16px 32px;font-size:18px;cursor:pointer;border-radius:8px;}#bad{color:red;font-weight:bold;}");
+  client.println("body{font-family:Helvetica;text-align:center;margin-top:40px;}button{background:#1976d2;color:white;border:none;padding:16px 32px;font-size:18px;cursor:pointer;border-radius:8px;}#malaPostura{color:red;font-weight:bold;}");
   client.println("</style></head><body>");
   client.println("<h1>Corrector de Postura Cervical</h1>");
   client.println("<button onclick='fetch(\"/calibrate\")'>Calibrar postura buena</button>");
+  client.println("<button style=\"margin-left:12px\" onclick='fetch(\"/vibrate\")'>Test vibración</button>");
+  client.println("<button style=\"margin-left:12px\" onclick='fetch(\"/stopvibrate\")'>Detener vibración</button>");
   client.println("<h2>Lecturas actuales</h2>");
   client.println("<p>Pitch: <span id='pitch'>--</span>°</p>");
   client.println("<p>Roll: <span id='roll'>--</span>°</p>");
   client.println("<p>Ref: <span id='refPitch'>--</span>° / <span id='refRoll'>--</span>°</p>");
-  client.println("<p id='bad'></p>");
+  client.println("<p id='malaPostura'></p>");
+  client.println("<p id='state'></p>");
   client.println("<script>");
-  client.println("async function update(){let r=await fetch('/data');let d=await r.json();document.getElementById('pitch').textContent=d.pitch.toFixed(2);document.getElementById('roll').textContent=d.roll.toFixed(2);document.getElementById('refPitch').textContent=d.refPitch.toFixed(2);document.getElementById('refRoll').textContent=d.refRoll.toFixed(2);document.getElementById('bad').textContent=d.bad?'Mala postura detectada':'';}");
-  client.println("setInterval(update,1000);update();");
+  client.println("async function update(){");
+  client.println("  let r = await fetch('/data');");
+  client.println("  let d = await r.json();");
+  client.println("  document.getElementById('pitch').textContent = d.pitch.toFixed(2);");
+  client.println("  document.getElementById('roll').textContent = d.roll.toFixed(2);");
+  client.println("  document.getElementById('refPitch').textContent = d.refPitch.toFixed(2);");
+  client.println("  document.getElementById('refRoll').textContent = d.refRoll.toFixed(2);");
+  client.println("  document.getElementById('malaPostura').textContent = d.malaPostura ? 'Mala postura detectada' : '';");
+  client.println("  document.getElementById('state').textContent = d.vibrating ? 'Motor VIBRANDO' : 'Motor apagado';");
+  client.println("}");
+  client.println("setInterval(update, 1000);");
+  client.println("update();");
   client.println("</script></body></html>");
   client.stop();
 }
 
 void readMPU() {
-  Wire.beginTransmission(MPU_ADDR);
-  Wire.write(0x3B);
-  Wire.endTransmission(false);
-  Wire.requestFrom(MPU_ADDR, 6, true);
-  int16_t ax_raw = Wire.read() << 8 | Wire.read();
-  int16_t ay_raw = Wire.read() << 8 | Wire.read();
-  int16_t az_raw = Wire.read() << 8 | Wire.read();
-  ax = (ax_raw / ACCEL_SENS) - axOffset;
-  ay = (ay_raw / ACCEL_SENS) - ayOffset;
-  az = (az_raw / ACCEL_SENS) - azOffset;
+  for (int attempt = 0; attempt < 3; attempt++) {
+    Wire.beginTransmission(MPU_ADDR);
+    Wire.write(0x3B);
+    byte error = Wire.endTransmission(false);
+    
+    if (error != 0) {
+      delay(5);
+      continue;
+    }
+    
+    int bytesReceived = Wire.requestFrom(MPU_ADDR, 6, true);
+    if (bytesReceived != 6) {
+      delay(5);
+      continue;
+    }
+    
+    int16_t ax_raw = Wire.read() << 8 | Wire.read();
+    int16_t ay_raw = Wire.read() << 8 | Wire.read();
+    int16_t az_raw = Wire.read() << 8 | Wire.read();
+    ax = (ax_raw / ACCEL_SENS) - axOffset;
+    ay = (ay_raw / ACCEL_SENS) - ayOffset;
+    az = (az_raw / ACCEL_SENS) - azOffset;
+    return;
+  }
+  
+  Serial.println("Error I2C - usando última lectura válida");
 }
 
 void computeInitialOffsets(int samples) {

@@ -9,6 +9,7 @@ import {
   Alert,
   Modal,
   ActivityIndicator,
+  KeyboardAvoidingView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { User, Calendar, Save, X, ChevronDown, Ruler, Weight, Dumbbell, Percent } from "lucide-react-native";
@@ -239,6 +240,10 @@ export default function EditProfileScreen() {
   };
 
   return (
+    <KeyboardAvoidingView
+  style={{ flex: 1 }}
+  behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+>
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.inner}>
         <View style={styles.header}>
@@ -266,7 +271,6 @@ export default function EditProfileScreen() {
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Información personal</Text>
 
-          {/* NUEVO: Icono de perfil */}
           <LabeledField label="Icono de perfil">
             <Pressable
               style={[styles.inputRow, styles.inputEspecial]}
@@ -461,7 +465,6 @@ export default function EditProfileScreen() {
           </View>
         </View>
 
-        {/* Modal selector de iconos */}
         <Modal
           visible={showIconPicker}
           transparent
@@ -672,6 +675,7 @@ export default function EditProfileScreen() {
         </Modal>
       </View>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

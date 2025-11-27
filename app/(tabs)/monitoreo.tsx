@@ -24,12 +24,13 @@ export default function MonitoreoScreen() {
 
   const [isCalibratingModal, setIsCalibratingModal] = useState(false);
   const [countdown, setCountdown] = useState(5);
+  const [calibrationPhase, setCalibrationPhase] = useState<'prepare' | 'hold'>('prepare');
 
-  // postura correcta real: viene del ESP
   const posturaCorrecta = lectura?.malaPostura === 0;
 
   const iniciarCalibracion = useCallback(async () => {
     setIsCalibratingModal(true);
+    setCalibrationPhase('prepare');
     setCountdown(5);
 
     for (let i = 5; i > 0; i--) {
@@ -43,12 +44,19 @@ export default function MonitoreoScreen() {
         headers: { 'Content-Type': 'application/json' }
       });
       console.log("Calibración solicitada");
+      
+      setCalibrationPhase('hold');
+      for (let i = 15; i > 0; i--) {
+        setCountdown(i);
+        await new Promise((res) => setTimeout(res, 1000));
+      }
+      
     } catch (e) {
       console.error("Error calibrando:", e);
     } finally {
       setIsCalibratingModal(false);
     }
-  }, []);
+  }, [ip]);
 
   const handleGuardarManual = useCallback(async () => {
     if (!lectura) return;
@@ -75,7 +83,6 @@ export default function MonitoreoScreen() {
   return (
     <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
 
-      {/* ENCABEZADO */}
       <View style={styles.header}>
         <View>
           <Text variant="heading" style={styles.title}>
@@ -94,7 +101,6 @@ export default function MonitoreoScreen() {
         />
       </View>
 
-      {/* ESTADO DE CONEXIÓN */}
       <View style={styles.estadoConexion}>
         <View
           style={[
@@ -112,7 +118,6 @@ export default function MonitoreoScreen() {
         )}
       </View>
 
-      {/* POSTURA */}
       <View style={styles.estadoPostura}>
         <View
           style={[styles.circuloExterior, { backgroundColor: colorPostura }]}
@@ -138,7 +143,6 @@ export default function MonitoreoScreen() {
         </Text>
       </View>
 
-      {/* LECTURA REAL EN TIEMPO REAL */}
       {lectura && (
         <View style={styles.datosContainer}>
           <Text style={styles.dato}>Pitch: {lectura.pitch.toFixed(2)}°</Text>
@@ -155,33 +159,7 @@ export default function MonitoreoScreen() {
         </View>
       )}
 
-      {/* TABLA DE REGISTROS */}
-      <View style={styles.alertasContainer}>
-        <Text variant="title" style={styles.alertasTitulo}>
-          Últimas alertas de mala postura
-        </Text>
 
-        {stats.ultimasAlertasDia.length === 0 ? (
-          <View style={[styles.alertasLista, { padding: 20 }]}>
-            <Text style={styles.alertaTipo}>No hay alertas hoy</Text>
-          </View>
-        ) : (
-          <View style={styles.alertasLista}>
-            {stats.ultimasAlertasDia.slice(0, 10).map((alerta, idx) => (
-              <View key={`${alerta.hora}-${idx}`} style={styles.alertaFila}>
-                <Text style={styles.alertaTipo}>{alerta.hora}</Text>
-                <Text style={styles.alertaHora}>
-                  {alerta.duracionSegundos != null
-                    ? `${alerta.duracionSegundos}s`
-                    : "Sin corrección"}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
-
-      {/* BOTONES */}
       <View style={styles.controlButtons}>
 
         <Button
@@ -192,26 +170,25 @@ export default function MonitoreoScreen() {
         >
           Calibrar postura buena
         </Button>
-
-        <Button
-          size="lg"
-          variant="default"
-          style={styles.botonTest}
-          onPress={handleGuardarManual}
-        >
-          Registrar ahora
-        </Button>
       </View>
 
-      {/* MODAL CALIBRACIÓN */}
       <Modal visible={isCalibratingModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Mantén postura neutra</Text>
+            <Text style={styles.modalTitle}>
+              {calibrationPhase === 'prepare' 
+                ? 'Prepárate' 
+                : '¡Mantén esta postura!'}
+            </Text>
             <Text style={styles.modalSubtitle}>
-              Calibrando en {countdown} s...
+              {calibrationPhase === 'prepare'
+                ? 'Adopta una postura neutra y cómoda'
+                : 'Mantén la postura durante 15 segundos'}
             </Text>
             <Text style={styles.modalCountdown}>{countdown}</Text>
+            <Text style={styles.modalCountdownLabel}>
+              {calibrationPhase === 'prepare' ? 'Comienza en...' : 'Segundos restantes'}
+            </Text>
 
             <Button
               style={styles.modalCancelBtn}
@@ -422,6 +399,14 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textAlign: "center",
     textAlignVertical: "center",
+    marginBottom: 8,
+  },
+
+  modalCountdownLabel: {
+    color: "#A0522D",
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 12,
   },
 
   modalCancelBtn: {

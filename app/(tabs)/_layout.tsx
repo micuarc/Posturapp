@@ -48,12 +48,10 @@ export default function TabLayout() {
               />
             );
           }
-          // On Android & Web: no background
           return null;
         },
         tabBarStyle: Platform.select({
           ios: {
-            // Use a transparent background on iOS to show the blur effect
             position: 'absolute',
           },
           default: {

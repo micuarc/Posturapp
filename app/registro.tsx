@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, Image, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, Pressable, ScrollView, Image, StyleSheet, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { User, Mail, Lock, Eye, EyeOff, Heart } from 'lucide-react-native';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -48,7 +48,7 @@ export default function SignUpScreen() {
     setLoading(true);
     
     try {
-      const result = await registrarUsuario(email, password);
+      const result = await registrarUsuario(firstName, lastName, email, password);
       
       if (result.success) {
         Alert.alert("Éxito", result.message, [
@@ -66,8 +66,17 @@ export default function SignUpScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.inner}>
+    <KeyboardAvoidingView 
+      style={{ flex: 1 }} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={0}
+    >
+      <ScrollView 
+        style={styles.container}
+        contentContainerStyle={{ flexGrow: 1 }}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.inner}>
         <View style={styles.header}>
           <View style={styles.iconCircle}>
             <Heart color="#FF9966" size={40} />
@@ -124,7 +133,7 @@ export default function SignUpScreen() {
             <Lock color="#FF9966" size={24} />
             <TextInput
               style={styles.input}
-              placeholder="Contraseña (mínimo 6 caracteres)"
+              placeholder="Contraseña"
               placeholderTextColor="#A0522D"
               value={password}
               onChangeText={setPassword}
@@ -191,7 +200,8 @@ export default function SignUpScreen() {
           </Pressable>
         </View>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

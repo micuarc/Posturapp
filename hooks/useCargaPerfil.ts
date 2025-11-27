@@ -94,11 +94,8 @@ export function useCargaPerfil(db: SQLiteDatabase, userId?: number) {
         ]
       );
 
-      console.log('Resultado del UPDATE:', result);
-      console.log('Filas afectadas:', result.changes);
 
       if (result.changes === 0) {
-        console.warn('⚠️ No se actualizó ninguna fila');
         return { 
           success: false, 
           message: 'No se encontró el usuario o no hubo cambios' 

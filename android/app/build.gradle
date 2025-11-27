@@ -84,7 +84,7 @@ def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 android {
     ndkVersion rootProject.ext.ndkVersion
 
-    buildToolsVersion rootProject.ext.buildToolsVersionCMakeLists
+    buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
     namespace 'com.anonymous.posturapp'
@@ -122,11 +122,10 @@ android {
         }
     }
     packagingOptions {
-        jniLibs {
-            def enableLegacyPackaging = findProperty('expo.useLegacyPackaging') ?: 'false'
-            useLegacyPackaging enableLegacyPackaging.toBoolean()
-        }
-    }
+    jniLibs.useLegacyPackaging = (findProperty("expo.useLegacyPackaging") ?: "false").toBoolean()
+    excludes += ["assets/non-interactive.json"]
+}
+
     androidResources {
         ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
     }
@@ -155,6 +154,9 @@ android {
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
+    
+    // OkHttp for native service HTTP requests
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true";
     def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true";

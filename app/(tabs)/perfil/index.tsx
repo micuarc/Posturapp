@@ -23,7 +23,6 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/helpers/AuthContext";
 import { useSQLiteContext } from "expo-sqlite";
 import { useCargaPerfil } from "@/hooks/useCargaPerfil";
-import { dbDebugger } from "@/utils/dbDebugger";
 import { normalizarCaseString } from "@/helpers/NormalizarCaseString";
 import { getUserIconSource } from "@/helpers/UserIcons";
 
@@ -44,16 +43,6 @@ export default function ProfileScreen() {
       }
     }, [usuario?.id])
   );
-
-  const handleDebugDatos = async () => {
-    if (!usuario?.id) return;
-
-    console.log("=== DEBUG PERFIL ===");
-    console.log("Usuario ID:", usuario.id);
-    console.log("Perfil cargado:", perfil);
-
-    await dbDebugger.verUsuario(db, usuario.id);
-  };
 
   const handleEditarPerfil = () => router.push("/(tabs)/perfil/editar");
 
@@ -148,12 +137,6 @@ export default function ProfileScreen() {
               Información personal y física
             </Text>
           </View>
-          <Button
-            icon={(props) => <Edit3 {...props} color="#FFF0E6" />}
-            size="icon"
-            style={styles.headerIcon}
-            onPress={handleEditarPerfil}
-          />
         </View>
 
         <View style={styles.avatarContainer}>

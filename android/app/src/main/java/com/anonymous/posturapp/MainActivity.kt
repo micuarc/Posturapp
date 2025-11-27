@@ -1,8 +1,10 @@
 package com.anonymous.posturapp
 import expo.modules.splashscreen.SplashScreenManager
 
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
@@ -21,6 +23,18 @@ class MainActivity : ReactActivity() {
     SplashScreenManager.registerOnActivity(this)
     // @generated end expo-splashscreen
     super.onCreate(null)
+  }
+
+  override fun onDestroy() {
+    super.onDestroy()
+    // Stop service when activity is destroyed (app closed completely)
+    if (isFinishing) {
+      Log.d("MainActivity", "App finishing, stopping sensor service")
+      val intent = Intent(this, SensorForegroundService::class.java).apply {
+        action = SensorForegroundService.ACTION_STOP
+      }
+      startService(intent)
+    }
   }
 
   /**

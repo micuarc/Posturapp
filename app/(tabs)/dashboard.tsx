@@ -94,7 +94,6 @@ export default function DashboardScreen() {
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.inner}>
-        {/* HEADER */}
         <View style={styles.header}>
           <View>
             <Text style={styles.title}>Dashboard</Text>
@@ -114,7 +113,6 @@ export default function DashboardScreen() {
           </Pressable>
         </View>
 
-        {/* ESTADÍSTICAS PRINCIPALES */}
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <View style={styles.statHeader}>
@@ -139,7 +137,6 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        {/* SELECTOR */}
         <View style={styles.selector}>
           {(["day", "week", "month"] as const).map((range) => {
             const active = timeRange === range;
@@ -169,7 +166,7 @@ export default function DashboardScreen() {
           })}
         </View>
 
-        {/* ============== DÍA ============== */}
+        {/* ~~~~~~~~~~~~~~~ DÍA ~~~~~~~~~~~~~~~ */}
         {timeRange === "day" && (
           <View style={styles.chartCard}>
             <View style={styles.cardHeader}>
@@ -199,7 +196,6 @@ export default function DashboardScreen() {
               Alertas del día: {stats.totalDia}
             </Text>
 
-            {/* Tabla últimas alertas */}
             <View style={styles.alertsTable}>
               <Text style={styles.alertsTitle}>
                 Últimas alertas de mala postura
@@ -225,7 +221,7 @@ export default function DashboardScreen() {
           </View>
         )}
 
-        {/* ============ SEMANA ============ */}
+        {/* ~~~~~~~~~~~~~~~ SEMANA ~~~~~~~~~~~~~~~ */}
         {timeRange === "week" && (
           <View style={styles.chartCard}>
             <View style={styles.cardHeader}>
@@ -250,7 +246,7 @@ export default function DashboardScreen() {
           </View>
         )}
 
-        {/* ============= MES ============== */}
+        {/* ~~~~~~~~~~~~~~~ MES ~~~~~~~~~~~~~~~ */}
         {timeRange === "month" && (
           <View style={styles.chartCard}>
             <View style={styles.cardHeader}>
@@ -270,7 +266,6 @@ export default function DashboardScreen() {
           </View>
         )}
 
-        {/* RACHA */}
         <View style={styles.streakCard}>
           <View style={styles.streakHeader}>
             <Award color="#FF9966" size={20} />
@@ -279,7 +274,6 @@ export default function DashboardScreen() {
           <Text style={styles.streakValue}>{stats.streak} días</Text>
         </View>
 
-        {/* BOTÓN MONITOREO */}
         <Pressable
           style={styles.actionButton}
           onPress={() => router.push("/(tabs)/monitoreo")}

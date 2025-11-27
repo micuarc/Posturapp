@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, Image, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, Pressable, ScrollView, Image, StyleSheet, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Eye, EyeOff, Lock, Mail, Heart } from 'lucide-react-native';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -44,8 +44,17 @@ export default function LoginScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.inner}>
+    <KeyboardAvoidingView 
+      style={{ flex: 1 }} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={0}
+    >
+      <ScrollView 
+        style={styles.container}
+        contentContainerStyle={{ flexGrow: 1 }}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.inner}>
         <View style={styles.header}>
           <View style={styles.iconCircle}>
             <Heart color="#FF9966" size={40} />
@@ -127,7 +136,8 @@ export default function LoginScreen() {
           </Pressable>
         </View>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

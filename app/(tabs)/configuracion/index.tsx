@@ -7,23 +7,22 @@ import { NativeModules } from "react-native";
 import { ScrollView } from "@/components/ui/scroll-view";
 import { View } from "@/components/ui/view";
 import { Text } from "@/components/ui/text";
-
-const { Postura } = NativeModules;
+import { startService, stopService, setFeedbackConfig, setEsp32Ip } from "@/helpers/postura";
+import { vibrateSensor } from "@/helpers/sensorApi";
 
 export default function SensorSettingsScreen() {
   const db = useSQLiteContext();
-  const { connected, ip } = useContext(SensorContext);
+const { connected, ip, setIp } = useContext(SensorContext);
 
   const [selectedFeedback, setSelectedFeedback] = useState<string[]>(["vibration"]);
   const [lastSync, setLastSync] = useState("--");
   const [ipInput, setIpInput] = useState("");
 
   const sendConfigToNative = (values: string[]) => {
-    if (Platform.OS !== "android" || !Postura) return;
-    const vibrate = values.includes("vibration");
-    const notify = values.includes("notification");
-    const sound = values.includes("sound");
-    Postura.setFeedbackConfig(vibrate, notify, sound);
+    const vibrateEnabled = values.includes("vibration");
+    const notifyEnabled = values.includes("notification");
+    const soundEnabled = values.includes("sound");
+    setFeedbackConfig(vibrateEnabled, notifyEnabled, soundEnabled);
   };
 
   useEffect(() => {
@@ -63,29 +62,38 @@ export default function SensorSettingsScreen() {
   };
 
   const guardarIp = async () => {
-    if (!ipInput.trim()) return;
+  const cleanIp = ipInput.trim();
+  if (!cleanIp) return;
 
-    try {
-      await db.runAsync(
-        `INSERT INTO configuracion(key, value)
-         VALUES (?, ?)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-        ["sensor_ip", ipInput.trim()]
-      );
+  await db.runAsync(
+    `INSERT INTO configuracion(key, value)
+     VALUES (?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+    ["sensor_ip", cleanIp]
+  );
 
-      // iniciar el servicio nativo con la nueva ip
-      if (Platform.OS === "android" && Postura) {
-        try {
-          Postura.startService(ipInput.trim());
-          console.log("Servicio reiniciado con nueva IP:", ipInput.trim());
-        } catch (e) {
-          console.log("Error reiniciando servicio:", e);
-        }
-      }
+  setIp(cleanIp);
+  setEsp32Ip(cleanIp);
+  stopService();
+  startService();
 
-      console.log("IP guardada correctamente:", ipInput.trim());
-    } catch (e) {
-      console.log("Error guardando IP:", e);
+  console.log("IP guardada y servicio reiniciado:", cleanIp);
+};
+
+
+  const probarVibracion = async () => {
+    if (!selectedFeedback.includes("vibration")) {
+      alert("La vibración está desactivada en el tipo de feedback.");
+      return;
+    }
+    const targetIp = (ipInput.trim() || ip || "").trim();
+    if (!targetIp) {
+      console.log("IP no configurada para probar vibración");
+      return;
+    }
+    const ok = await vibrateSensor(targetIp);
+    if (!ok) {
+      console.log("No se pudo activar la vibración remota");
     }
   };
 
@@ -98,10 +106,11 @@ export default function SensorSettingsScreen() {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.inner}>
-
         <View style={styles.header}>
-          <Text style={styles.title}>Configuración</Text>
-          <Text style={styles.subtitle}>Personaliza la app y el dispositivo</Text>
+          <View>
+            <Text style={styles.title}>Configuración</Text>
+            <Text style={styles.subtitle}>Personaliza la app y el dispositivo</Text>
+          </View>
         </View>
 
         <View style={styles.card}>
@@ -142,6 +151,10 @@ export default function SensorSettingsScreen() {
           <TouchableOpacity style={styles.saveBtn} onPress={guardarIp}>
             <Text style={styles.saveBtnText}>Guardar IP</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity style={styles.testBtn} onPress={probarVibracion}>
+            <Text style={styles.testBtnText}>Probar vibración</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.card}>
@@ -170,16 +183,6 @@ export default function SensorSettingsScreen() {
               <Text style={styles.infoValue}>{connected ? "Conectado" : "Desconectado"}</Text>
             </View>
           </View>
-
-          <View style={styles.infoRow}>
-            <View style={styles.infoIcon}>
-              <Settings size={20} color="#FF9966" />
-            </View>
-            <View style={styles.infoCol}>
-              <Text style={styles.infoLabel}>Última sincronización</Text>
-              <Text style={styles.infoValue}>{lastSync}</Text>
-            </View>
-          </View>
         </View>
 
       </View>
@@ -191,8 +194,13 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFF9F2" },
   inner: { padding: 24, paddingTop: 48 },
 
-  header: { marginBottom: 10 },
-  title: { fontSize: 32, fontWeight: "700", color: "#8B5A2B" },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+    justifyContent: "space-between",
+  },
+  title: { fontSize: 32, fontWeight: "700", color: "#8B5A2B", marginBottom: 4 },
   subtitle: { fontSize: 16, color: "#A0522D", opacity: 0.8, marginBottom: 12 },
 
   card: {
@@ -243,6 +251,20 @@ const styles = StyleSheet.create({
   },
 
   saveBtnText: { color: "#FFF", fontWeight: "700", fontSize: 16 },
+
+  testBtn: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#FF9966",
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: "center",
+  },
+  testBtnText: {
+    color: "#FF9966",
+    fontWeight: "700",
+    fontSize: 16,
+  },
 
   infoRow: { flexDirection: "row", alignItems: "center", marginBottom: 14 },
   infoIcon: {

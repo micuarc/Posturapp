@@ -72,77 +72,74 @@ const verificarPassword = async (password: string, hash: string, salt: string): 
 };
 
 export default function AuthUsuario(db: SQLiteDatabase) {
-  const registrarUsuario = async (email: string, password: string): Promise<AuthResult> => {
-    try {
-      if (!email?.trim() || !password?.trim()) {
-        return { success: false, message: "Email y contraseña son obligatorios" };
-      }
-
-      if (password.length < 6) {
-        return { success: false, message: "La contraseña debe tener al menos 6 caracteres" };
-      }
-
-      if (password.length > 128) {
-        return { success: false, message: "La contraseña es demasiado larga" };
-      }
-
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        return { success: false, message: "Formato de email inválido" };
-      }
-
-      const usuarioExistente = await db.getFirstAsync(
-        "SELECT id FROM usuarios WHERE email = ?",
-        [email.toLowerCase()]
-      );
-
-      if (usuarioExistente) {
-        return { success: false, message: "Este email ya está registrado" };
-      }
-
-      console.log("Generando salt...");
-      const salt = await generarSalt();
-      
-      console.log("Hasheando contraseña...");
-      const passwordHash = await hashearPassword(password, salt);
-
-      console.log(`Salt generado: ${salt.substring(0, 8)}... (${salt.length} caracteres)`);
-      console.log(`Hash generado: ${passwordHash.substring(0, 8)}... (${passwordHash.length} caracteres)`);
-
-      const result = await db.runAsync(
-        `INSERT INTO usuarios (email, password, salt) VALUES (?, ?, ?)`,
-        [email.toLowerCase(), passwordHash, salt]
-      );
-
-      if (result.lastInsertRowId) {
-        console.log("Usuario creado exitosamente con ID:", result.lastInsertRowId);
-        return {
-          success: true,
-          message: "Usuario registrado exitosamente",
-          user: {
-            id: result.lastInsertRowId,
-            email: email.toLowerCase()
-          }
-        };
-      } else {
-        return { success: false, message: "Error al crear el usuario en la base de datos" };
-      }
-
-    } catch (error) {
-      console.error("Error en registro de usuario:", error);
-      
-      let message = "Error interno del servidor";
-      if (error instanceof Error) {
-        if (error.message.includes("Hash")) {
-          message = "Error procesando la contraseña";
-        } else if (error.message.includes("database")) {
-          message = "Error de base de datos";
-        }
-      }
-      
-      return { success: false, message };
+  const registrarUsuario = async (
+  firstName: string,
+  lastName: string | null,
+  email: string,
+  password: string
+): Promise<AuthResult> => {
+  try {
+    if (!firstName?.trim()) {
+      return { success: false, message: "El nombre es obligatorio" };
     }
-  };
+
+    if (!email?.trim() || !password?.trim()) {
+      return { success: false, message: "Email y contraseña son obligatorios" };
+    }
+
+    if (password.length < 6) {
+      return { success: false, message: "La contraseña debe tener al menos 6 caracteres" };
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return { success: false, message: "Formato de email inválido" };
+    }
+
+    const usuarioExistente = await db.getFirstAsync(
+      "SELECT id FROM usuarios WHERE email = ?",
+      [email.toLowerCase()]
+    );
+
+    if (usuarioExistente) {
+      return { success: false, message: "Este email ya está registrado" };
+    }
+
+    const salt = await generarSalt();
+    const passwordHash = await hashearPassword(password, salt);
+
+    const result = await db.runAsync(
+      `
+      INSERT INTO usuarios (nombre, apellido, email, password, salt)
+      VALUES (?, ?, ?, ?, ?)
+      `,
+      [
+        firstName.trim(),
+        lastName?.trim() || null,
+        email.toLowerCase(),
+        passwordHash,
+        salt
+      ]
+    );
+
+    if (!result.lastInsertRowId)
+      return { success: false, message: "Error al crear usuario en la base de datos" };
+
+    return {
+      success: true,
+      message: "Usuario registrado exitosamente",
+      user: {
+        id: result.lastInsertRowId,
+        email: email.toLowerCase()
+      }
+    };
+
+  } catch (error) {
+    console.error("Error registrando usuario:", error);
+    return { success: false, message: "Error interno del servidor" };
+  }
+};
+
 
   const loginUsuario = async (email: string, password: string): Promise<AuthResult> => {
     try {

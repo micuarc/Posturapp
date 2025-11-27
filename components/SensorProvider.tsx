@@ -4,54 +4,55 @@ import { SensorContext } from "@/helpers/SensorContext";
 import { useWifiSensor } from "@/hooks/useWifiSensor";
 import { useSyncPostura } from "@/hooks/useSyncPostura";
 import { useSQLiteContext } from "expo-sqlite";
-import { NativeModules, Platform } from "react-native";
 import { useAuth } from "@/helpers/AuthContext";
-
-const { Postura } = NativeModules;
+import {
+  setEsp32Ip,
+  startService as startNativeService,
+} from "@/helpers/postura";
 
 const SensorProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const db = useSQLiteContext();
   const { usuario } = useAuth();
 
   const [ip, setIp] = useState<string | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     (async () => {
-      const row = await db.getFirstAsync<{ value: string }>(
-        "SELECT value FROM configuracion WHERE key = ?",
-        ["sensor_ip"]
-      );
-      if (row?.value) setIp(row.value);
+      try {
+        const row = await db.getFirstAsync<{ value: string }>(
+          "SELECT value FROM configuracion WHERE key = ?",
+          ["sensor_ip"]
+        );
+        setIp(row?.value?.trim() ?? null);
+      } catch {
+        setIp(null);
+      }
     })();
-  }, [db, refreshKey]);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setRefreshKey(k => k + 1);
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, []);
+  }, [db]);
 
   const { lectura, connected } = useWifiSensor(ip ?? "");
-  useSyncPostura(db, lectura, connected);
 
-  // iniciar servicio nativo con IP real
+  useSyncPostura(db, lectura, connected, ip);
+
   useEffect(() => {
     if (!ip) return;
-    if (Platform.OS !== "android" || !Postura) return;
 
-    try {
-      Postura.startService(ip);
-      console.log("Servicio nativo iniciado con IP:", ip);
-    } catch (err) {
-      console.log("Error iniciando servicio:", err);
-    }
+    console.log("Postura: actualizando IP en SharedPreferences:", ip);
+    setEsp32Ip(ip);
+
+    console.log("Postura: iniciando servicio nativo…");
+    startNativeService();
   }, [ip]);
 
   return (
-    <SensorContext.Provider value={{ lectura, connected, ip }}>
+    <SensorContext.Provider
+      value={{
+        lectura,
+        connected,
+        ip,
+        setIp,
+      }}
+    >
       {children}
     </SensorContext.Provider>
   );

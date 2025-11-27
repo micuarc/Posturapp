@@ -10,11 +10,12 @@
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/splash.png",
-      "resizeMode": "contain",
+      "resize366e": "contain",
       "backgroundColor": "#0A0A0A"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.posturapp"
     },
     "android": {
       "adaptiveIcon": {
@@ -22,25 +23,39 @@
         "backgroundColor": "#0A0A0A"
       },
       "edgeToEdgeEnabled": true,
-      "usesCleartextTraffic": true,
       "package": "com.anonymous.posturapp",
       "permissions": [
         "INTERNET",
+        "VIBRATE",
+        "WAKE_LOCK",
         "ACCESS_NETWORK_STATE",
         "ACCESS_WIFI_STATE",
-        "ACCESS_FINE_LOCATION",
-        "WAKE_LOCK",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_DATA_SYNC",
+        "POST_NOTIFICATIONS"
       ],
-      "networkSecurityConfig": "./android/app/src/main/res/xml/network_security_config.xml"
+      "usesCleartextTraffic": true,
+      "compileSdkVersion": 36,
+      "targetSdkVersion": 36,
+      "minSdkVersion": 24,
+      "buildToolsVersion": "36.0.0",
+      "ndkVersion": "27.1.12297006"
     },
     "web": {
       "bundler": "metro",
       "output": "static",
       "favicon": "./assets/images/icon.png"
     },
-    "plugins": ["expo-router", "expo-notifications", "expo-secure-store"],
+    "plugins": [
+      "expo-router",
+      "expo-notifications",
+      "expo-secure-store",
+      "expo-build-properties",
+      "./plugins/with-postura-service"
+    ],
+    "updates": {
+      "enabled": false
+    },
     "experiments": {
       "typedRoutes": true
     },

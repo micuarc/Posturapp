@@ -2,7 +2,6 @@ import * as SQLite from "expo-sqlite";
 
 export const iniciarConexion = async (db: SQLite.SQLiteDatabase) => {
   try {
-    // para FK
     await db.execAsync("PRAGMA foreign_keys = ON;");
 
     // usuarios
